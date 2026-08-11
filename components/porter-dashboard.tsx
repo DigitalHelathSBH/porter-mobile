@@ -131,6 +131,7 @@ function NormalClockIcon({
         stroke={color}
         strokeWidth="2"
       />
+
       <path
         d="M12 7V12L15.5 14"
         stroke={color}
@@ -258,10 +259,7 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="
-              display: block;
-              flex: 0 0 auto;
-            "
+            style="display:block;flex:0 0 auto;"
           >
             <path
               d="M13.5 2.5L5.5 13H11L10.5 21.5L18.5 10.5H13L13.5 2.5Z"
@@ -287,10 +285,7 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="
-              display: block;
-              flex: 0 0 auto;
-            "
+            style="display:block;flex:0 0 auto;"
           >
             <circle
               cx="12"
@@ -324,10 +319,7 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="
-              display: block;
-              flex: 0 0 auto;
-            "
+            style="display:block;flex:0 0 auto;"
           >
             <path
               d="M7 3H17"
@@ -367,126 +359,94 @@ function escapeHtml(
   return String(
     value ?? "",
   )
-    .replaceAll(
-      "&",
-      "&amp;",
-    )
-    .replaceAll(
-      "<",
-      "&lt;",
-    )
-    .replaceAll(
-      ">",
-      "&gt;",
-    )
-    .replaceAll(
-      '"',
-      "&quot;",
-    )
-    .replaceAll(
-      "'",
-      "&#039;",
-    );
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function buildNewCaseAlertHtml(
   newJobs: PorterJob[],
 ): string {
-  const displayedJobs =
-    newJobs.slice(
-      0,
-      3,
-    );
+  const displayedJobs = newJobs.slice(0, 3);
 
   const jobHtml =
     displayedJobs
-      .map(
-        (job) => {
-          const urgency =
-            getAlertUrgencyInfo(
-              job.fastTrack,
-            );
+      .map((job) => {
+        const urgency =
+          getAlertUrgencyInfo(job.fastTrack);
 
-          const time =
-            getTimeOnly(
-              job.createdAtShort,
-            );
+        const time =
+          getTimeOnly(job.createdAtShort);
 
-          const source =
-            escapeHtml(
-              job.locSource || "-",
-            );
+        const source =
+          escapeHtml(job.locSource || "-");
 
-          const destination =
-            escapeHtml(
-              job.locDest || "-",
-            );
+        const destination =
+          escapeHtml(job.locDest || "-");
 
-          return `
-            <div
-              style="
-                padding: 5px 0;
-                text-align: left;
-              "
-            >
-              <div
-                style="
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  margin-bottom: 6px;
-                  padding: 4px 9px;
-                  color: ${urgency.color};
-                  background: ${urgency.backgroundColor};
-                  border: 1px solid ${urgency.borderColor};
-                  border-radius: 999px;
-                  font-size: 14px;
-                  font-weight: 700;
-                  line-height: 1.25;
-                  box-sizing: border-box;
-                "
-              >
-                ${urgency.iconHtml}
-
-                <span>
-                  ${urgency.label}
-                  &nbsp;•&nbsp;
-                  ${escapeHtml(time)}
-                </span>
-              </div>
-
-              <div
-                style="
-                  color: #4b5563;
-                  font-size: 14px;
-                  font-weight: 400;
-                  line-height: 1.55;
-                  overflow-wrap: anywhere;
-                "
-              >
-                ${source}
-                &nbsp;→&nbsp;
-                ${destination}
-              </div>
-            </div>
-          `;
-        },
-      )
-      .join(
-        `
+        return `
           <div
             style="
-              height: 1px;
-              margin: 5px 0;
-              background: #e5e7eb;
+              padding: 5px 0;
+              text-align: left;
             "
-          ></div>
-        `,
-      );
+          >
+            <div
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin-bottom: 6px;
+                padding: 4px 9px;
+                color: ${urgency.color};
+                background: ${urgency.backgroundColor};
+                border: 1px solid ${urgency.borderColor};
+                border-radius: 999px;
+                font-size: 14px;
+                font-weight: 700;
+                line-height: 1.25;
+                box-sizing: border-box;
+              "
+            >
+              ${urgency.iconHtml}
+
+              <span>
+                ${urgency.label}
+                &nbsp;•&nbsp;
+                ${escapeHtml(time)}
+              </span>
+            </div>
+
+            <div
+              style="
+                color: #4b5563;
+                font-size: 14px;
+                font-weight: 400;
+                line-height: 1.55;
+                overflow-wrap: anywhere;
+              "
+            >
+              ${source}
+              &nbsp;→&nbsp;
+              ${destination}
+            </div>
+          </div>
+        `;
+      })
+      .join(`
+        <div
+          style="
+            height: 1px;
+            margin: 5px 0;
+            background: #e5e7eb;
+          "
+        ></div>
+      `);
 
   const remainingCount =
-    newJobs.length
-    - displayedJobs.length;
+    newJobs.length - displayedJobs.length;
 
   const remainingHtml =
     remainingCount > 0
@@ -540,56 +500,27 @@ type ActivityDateTimeParts = {
   minute: string;
 };
 
-/**
- * รองรับค่าที่มาจาก lib/porter.ts เช่น:
- * 06/08/2569 14:40:03
- *
- * และรองรับรูปแบบ SQL/ISO เผื่อมีการส่งมาตรง ๆ เช่น:
- * 2026-08-06 14:40:03.213
- * 2026-08-06T14:40:03.213
- */
 function parseActivityDateTime(
   value: string | null | undefined,
 ): ActivityDateTimeParts | null {
-  const text = String(
-    value ?? "",
-  ).trim();
+  const text = String(value ?? "").trim();
 
-  if (
-    !text
-    || text === "-"
-  ) {
+  if (!text || text === "-") {
     return null;
   }
 
-  const slashMatched =
-    text.match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
-    );
+  const slashMatched = text.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
+  );
 
   if (slashMatched) {
-    const day =
-      Number(
-        slashMatched[1],
-      );
+    const day = Number(slashMatched[1]);
+    const month = Number(slashMatched[2]);
+    let year = Number(slashMatched[3]);
 
-    const month =
-      Number(
-        slashMatched[2],
-      );
-
-    let year =
-      Number(
-        slashMatched[3],
-      );
-
-    if (
-      slashMatched[3].length === 2
-    ) {
+    if (slashMatched[3].length === 2) {
       year += 2500;
-    } else if (
-      year < 2400
-    ) {
+    } else if (year < 2400) {
       year += 543;
     }
 
@@ -597,47 +528,28 @@ function parseActivityDateTime(
       day,
       month,
       year,
-      hour:
-        slashMatched[4].padStart(
-          2,
-          "0",
-        ),
-      minute:
-        slashMatched[5],
+      hour: slashMatched[4].padStart(2, "0"),
+      minute: slashMatched[5],
     };
   }
 
-  const sqlMatched =
-    text.match(
-      /^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?/,
-    );
+  const sqlMatched = text.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?/,
+  );
 
   if (sqlMatched) {
     const christianYear =
-      Number(
-        sqlMatched[1],
-      );
+      Number(sqlMatched[1]);
 
     return {
-      day:
-        Number(
-          sqlMatched[3],
-        ),
-      month:
-        Number(
-          sqlMatched[2],
-        ),
+      day: Number(sqlMatched[3]),
+      month: Number(sqlMatched[2]),
       year:
         christianYear < 2400
           ? christianYear + 543
           : christianYear,
-      hour:
-        sqlMatched[4].padStart(
-          2,
-          "0",
-        ),
-      minute:
-        sqlMatched[5],
+      hour: sqlMatched[4].padStart(2, "0"),
+      minute: sqlMatched[5],
     };
   }
 
@@ -648,9 +560,7 @@ function formatThaiActivityDate(
   value: ActivityDateTimeParts,
 ): string {
   const monthName =
-    THAI_MONTHS[
-      value.month - 1
-    ];
+    THAI_MONTHS[value.month - 1];
 
   if (!monthName) {
     return "-";
@@ -663,57 +573,31 @@ function formatThaiActivityDate(
   );
 }
 
-/**
- * แสดงช่วงเวลาการทำงานจาก ass_dt ถึง fin_dt
- *
- * ตัวอย่างวันเดียวกัน:
- * 6 สิงหาคม 2569 14:40 - 14:59
- *
- * ตัวอย่างคนละวัน:
- * 6 สิงหาคม 2569 23:55 - 7 สิงหาคม 2569 00:15
- */
 function formatActivityPeriod(
   assignedAt: string | null | undefined,
   finishedAt: string | null | undefined,
 ): string {
   const assigned =
-    parseActivityDateTime(
-      assignedAt,
-    );
+    parseActivityDateTime(assignedAt);
 
   const finished =
-    parseActivityDateTime(
-      finishedAt,
-    );
+    parseActivityDateTime(finishedAt);
 
-  if (
-    !assigned
-    && !finished
-  ) {
+  if (!assigned && !finished) {
     return "-";
   }
 
-  if (
-    assigned
-    && finished
-  ) {
+  if (assigned && finished) {
     const assignedDate =
-      formatThaiActivityDate(
-        assigned,
-      );
+      formatThaiActivityDate(assigned);
 
     const finishedDate =
-      formatThaiActivityDate(
-        finished,
-      );
+      formatThaiActivityDate(finished);
 
     const isSameDate =
-      assigned.day
-        === finished.day
-      && assigned.month
-        === finished.month
-      && assigned.year
-        === finished.year;
+      assigned.day === finished.day
+      && assigned.month === finished.month
+      && assigned.year === finished.year;
 
     if (isSameDate) {
       return (
@@ -735,9 +619,7 @@ function formatActivityPeriod(
 
   if (assigned) {
     return (
-      `${formatThaiActivityDate(
-        assigned,
-      )} `
+      `${formatThaiActivityDate(assigned)} `
       + `${assigned.hour}:${assigned.minute}`
       + " - ยังไม่เสร็จสิ้น"
     );
@@ -745,9 +627,7 @@ function formatActivityPeriod(
 
   return (
     `ไม่พบเวลาเริ่ม - `
-    + `${formatThaiActivityDate(
-      finished!,
-    )} `
+    + `${formatThaiActivityDate(finished!)} `
     + `${finished!.hour}:${finished!.minute}`
   );
 }
@@ -761,10 +641,13 @@ export default function PorterDashboard({
 }: Props) {
   const router = useRouter();
 
-  /**
-   * จำ ReqNo ที่หน้าเว็บเคยเห็นแล้ว
-   * เพื่อไม่แจ้งเตือนงานเดิมซ้ำ
-   */
+  // ============================
+  // LOGOUT
+  // ============================
+  function handleLogout(): void {
+    router.replace("/mobile-porter/login");
+  }
+
   const knownJobReqNosRef =
     useRef<Set<string>>(
       new Set(),
@@ -804,13 +687,6 @@ export default function PorterDashboard({
       ? "ไม่พบรายการงานที่เสร็จสิ้นในวันนี้"
       : "ขณะนี้ยังไม่มีรายการงานใหม่";
 
-  /**
-   * หลังรีเฟรชข้อมูลแล้ว ตรวจว่ามี ReqNo ใหม่หรือไม่
-   *
-   * - ไม่แจ้งเตือนตอนเปิดหน้าครั้งแรก
-   * - แจ้งเฉพาะหน้ากำลังดำเนินการ
-   * - งานเดิมจะไม่แจ้งซ้ำ
-   */
   useEffect(() => {
     const currentReqNos =
       new Set(
@@ -823,11 +699,6 @@ export default function PorterDashboard({
       return;
     }
 
-    /**
-     * การแสดงหน้ากำลังดำเนินการครั้งแรก
-     * ให้จำรายการปัจจุบันไว้ก่อน
-     * โดยยังไม่แจ้งว่าเป็นงานใหม่
-     */
     if (
       !hasInitializedActiveJobsRef.current
     ) {
@@ -858,20 +729,14 @@ export default function PorterDashboard({
     const alertTitle =
       newJobs.length === 1
         ? "มีเคสใหม่ค่ะ"
-        : (
-          `มีเคสใหม่ `
-          + `${newJobs.length} เคสค่ะ`
-        );
+        : `มีเคสใหม่ ${newJobs.length} เคสค่ะ`;
 
     void Swal.fire({
       position: "top-end",
       toast: true,
       icon: "info",
       title: alertTitle,
-      html:
-        buildNewCaseAlertHtml(
-          newJobs,
-        ),
+      html: buildNewCaseAlertHtml(newJobs),
       showConfirmButton: false,
       timer: 5000,
       timerProgressBar: true,
@@ -908,9 +773,7 @@ export default function PorterDashboard({
 
         router.replace(
           `/mobile-porter/current?userid=${
-            encodeURIComponent(
-              staffNo,
-            )
+            encodeURIComponent(staffNo)
           }`,
         );
 
@@ -927,8 +790,7 @@ export default function PorterDashboard({
 
     async function refreshJobs(): Promise<void> {
       if (
-        document.visibilityState
-        !== "visible"
+        document.visibilityState !== "visible"
       ) {
         return;
       }
@@ -958,8 +820,7 @@ export default function PorterDashboard({
 
     function handleVisibilityChange(): void {
       if (
-        document.visibilityState
-        === "visible"
+        document.visibilityState === "visible"
       ) {
         void refreshJobs();
       }
@@ -973,9 +834,7 @@ export default function PorterDashboard({
     return () => {
       isDisposed = true;
 
-      window.clearInterval(
-        timer,
-      );
+      window.clearInterval(timer);
 
       document.removeEventListener(
         "visibilitychange",
@@ -1036,6 +895,18 @@ export default function PorterDashboard({
                 {headerSubtitle}
               </div>
             </div>
+
+            {/* ปุ่มออกจากระบบ */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={styles.logoutButton}
+              title="ออกจากระบบ"
+              aria-label="ออกจากระบบ"
+            >
+              ออกจากระบบ
+            </button>
+
           </div>
 
           <div
@@ -1069,9 +940,7 @@ export default function PorterDashboard({
                     viewMode === "active"
                   }
                   onClick={() =>
-                    handleViewChange(
-                      "active",
-                    )
+                    handleViewChange("active")
                   }
                   style={{
                     ...styles.statusSwitchButton,
@@ -1091,9 +960,7 @@ export default function PorterDashboard({
                     viewMode === "finished"
                   }
                   onClick={() =>
-                    handleViewChange(
-                      "finished",
-                    )
+                    handleViewChange("finished")
                   }
                   style={{
                     ...styles.statusSwitchButton,
@@ -1135,9 +1002,7 @@ export default function PorterDashboard({
             <div style={styles.jobList}>
               {jobs.map((job, index) => {
                 const encodedReqNo =
-                  encodeURIComponent(
-                    job.reqNo,
-                  );
+                  encodeURIComponent(job.reqNo);
 
                 const detailUrl = staffNo
                   ? (
@@ -1153,16 +1018,8 @@ export default function PorterDashboard({
 
                   gridTemplateColumns:
                     isFinishedView
-                      ? (
-                        "32px "
-                        + "minmax(0, 1fr) "
-                        + "auto"
-                      )
-                      : (
-                        "32px "
-                        + "minmax(0, 1fr) "
-                        + "20px"
-                      ),
+                      ? "32px minmax(0, 1fr) auto"
+                      : "32px minmax(0, 1fr) 20px",
                 };
 
                 const rowContent = (
@@ -1203,9 +1060,7 @@ export default function PorterDashboard({
                           />
 
                           <span
-                            style={
-                              styles.routeLineTop
-                            }
+                            style={styles.routeLineTop}
                           />
                         </div>
 
@@ -1216,9 +1071,7 @@ export default function PorterDashboard({
                             }
                           >
                             <div
-                              style={
-                                styles.routeLabel
-                              }
+                              style={styles.routeLabel}
                             >
                               ต้นทาง
                             </div>
@@ -1227,7 +1080,6 @@ export default function PorterDashboard({
                               <span
                                 style={{
                                   ...styles.jobTimeBadge,
-
                                   ...getTimeBadgeStyle(
                                     job.fastTrack,
                                   ),
@@ -1340,9 +1192,7 @@ export default function PorterDashboard({
                 if (isFinishedView) {
                   return (
                     <div
-                      key={
-                        `${job.reqNo}-${index}`
-                      }
+                      key={`${job.reqNo}-${index}`}
                       style={rowStyle}
                     >
                       {rowContent}
@@ -1352,9 +1202,7 @@ export default function PorterDashboard({
 
                 return (
                   <Link
-                    key={
-                      `${job.reqNo}-${index}`
-                    }
+                    key={`${job.reqNo}-${index}`}
                     href={detailUrl}
                     style={rowStyle}
                     aria-label={
@@ -1431,6 +1279,48 @@ const styles: Record<
   headerTitleArea: {
     minWidth: 0,
     flex: 1,
+  },
+
+  /* ปุ่มออกจากระบบ */
+  logoutButton: {
+    flex: "0 0 auto",
+    minHeight: "34px",
+    padding: "6px 9px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor:
+      "rgba(255,255,255,0.42)",
+    borderRadius: "9px",
+
+    color: "#ffffff",
+    background:
+      "rgba(255,255,255,0.13)",
+
+    fontFamily: "inherit",
+    fontSize: "11px",
+    fontWeight: 700,
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+
+    cursor: "pointer",
+
+    WebkitTapHighlightColor:
+      "transparent",
+
+    boxSizing: "border-box",
+  },
+
+  logoutIcon: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "16px",
+    lineHeight: 1,
   },
 
   title: {

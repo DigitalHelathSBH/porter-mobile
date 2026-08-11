@@ -84,9 +84,7 @@ export default function PorterLoginPage() {
       // Login สำเร็จ
       // =========================
       router.replace(
-        `/mobile-porter?userid=${encodeURIComponent(
-          result.staffNo
-        )}`
+        `/?userid=${encodeURIComponent(result.staffNo)}`
       );
     } catch (error) {
       console.error(
