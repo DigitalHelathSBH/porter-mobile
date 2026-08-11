@@ -65,10 +65,10 @@ export async function POST(request: Request) {
       )
       .query(`
         SELECT TOP 1
-          EmpID
+            CONVERT(varchar(50), EmpID) AS EmpID
         FROM Saraburi.dbo.Emp
-        WHERE LTRIM(RTRIM(EmpID)) = @EmpID
-          AND LTRIM(RTRIM([Password])) = @Password
+        WHERE LTRIM(RTRIM(CONVERT(varchar(50), EmpID))) = @EmpID
+        AND LTRIM(RTRIM(CONVERT(varchar(255), [Password]))) = @Password
       `);
 
     const employee = result.recordset[0] as
