@@ -11,11 +11,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 
-import { AmbulanceIcon } from "@/components/porter-icons";
+import PorterHeader from "@/components/porter-header";
 import { getCurrentPorterAssignment } from "@/lib/porter-live";
 import type { PorterJob } from "@/types/porter";
 
-type DashboardView = "active" | "finished";
+type DashboardView =
+  | "active"
+  | "finished";
 
 type Props = {
   staffNo: string;
@@ -217,13 +219,17 @@ function getTimeOnly(
     value ?? "",
   ).trim();
 
-  if (!text || text === "-") {
+  if (
+    !text
+    || text === "-"
+  ) {
     return "-";
   }
 
-  const matchedTime = text.match(
-    /(\d{2}:\d{2})(?::\d{2})?$/,
-  );
+  const matchedTime =
+    text.match(
+      /(\d{2}:\d{2})(?::\d{2})?$/,
+    );
 
   return matchedTime
     ? matchedTime[1]
@@ -252,6 +258,7 @@ function getAlertUrgencyInfo(
         color: "#d93434",
         backgroundColor: "#fff5f5",
         borderColor: "#ef5a5a",
+
         iconHtml: `
           <svg
             width="16"
@@ -259,7 +266,10 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="display:block;flex:0 0 auto;"
+            style="
+              display: block;
+              flex: 0 0 auto;
+            "
           >
             <path
               d="M13.5 2.5L5.5 13H11L10.5 21.5L18.5 10.5H13L13.5 2.5Z"
@@ -278,6 +288,7 @@ function getAlertUrgencyInfo(
         color: "#9a6800",
         backgroundColor: "#fff9e8",
         borderColor: "#e3b341",
+
         iconHtml: `
           <svg
             width="16"
@@ -285,7 +296,10 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="display:block;flex:0 0 auto;"
+            style="
+              display: block;
+              flex: 0 0 auto;
+            "
           >
             <circle
               cx="12"
@@ -294,6 +308,7 @@ function getAlertUrgencyInfo(
               stroke="currentColor"
               stroke-width="2"
             />
+
             <path
               d="M12 7V12L15.5 14"
               stroke="currentColor"
@@ -312,6 +327,7 @@ function getAlertUrgencyInfo(
         color: "#596674",
         backgroundColor: "#ffffff",
         borderColor: "#bcc7d2",
+
         iconHtml: `
           <svg
             width="16"
@@ -319,7 +335,10 @@ function getAlertUrgencyInfo(
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            style="display:block;flex:0 0 auto;"
+            style="
+              display: block;
+              flex: 0 0 auto;
+            "
           >
             <path
               d="M7 3H17"
@@ -327,12 +346,14 @@ function getAlertUrgencyInfo(
               stroke-width="2"
               stroke-linecap="round"
             />
+
             <path
               d="M7 21H17"
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
             />
+
             <path
               d="M8 3C8 7 9.5 9.5 12 12C9.5 14.5 8 17 8 21"
               stroke="currentColor"
@@ -340,6 +361,7 @@ function getAlertUrgencyInfo(
               stroke-linecap="round"
               stroke-linejoin="round"
             />
+
             <path
               d="M16 3C16 7 14.5 9.5 12 12C14.5 14.5 16 17 16 21"
               stroke="currentColor"
@@ -359,94 +381,128 @@ function escapeHtml(
   return String(
     value ?? "",
   )
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll(
+      "&",
+      "&amp;",
+    )
+    .replaceAll(
+      "<",
+      "&lt;",
+    )
+    .replaceAll(
+      ">",
+      "&gt;",
+    )
+    .replaceAll(
+      '"',
+      "&quot;",
+    )
+    .replaceAll(
+      "'",
+      "&#039;",
+    );
 }
 
 function buildNewCaseAlertHtml(
   newJobs: PorterJob[],
 ): string {
-  const displayedJobs = newJobs.slice(0, 3);
+  const displayedJobs =
+    newJobs.slice(
+      0,
+      3,
+    );
 
   const jobHtml =
     displayedJobs
-      .map((job) => {
-        const urgency =
-          getAlertUrgencyInfo(job.fastTrack);
+      .map(
+        (job) => {
+          const urgency =
+            getAlertUrgencyInfo(
+              job.fastTrack,
+            );
 
-        const time =
-          getTimeOnly(job.createdAtShort);
+          const time =
+            getTimeOnly(
+              job.createdAtShort,
+            );
 
-        const source =
-          escapeHtml(job.locSource || "-");
+          const source =
+            escapeHtml(
+              job.locSource
+              || "-",
+            );
 
-        const destination =
-          escapeHtml(job.locDest || "-");
+          const destination =
+            escapeHtml(
+              job.locDest
+              || "-",
+            );
 
-        return `
+          return `
+            <div
+              style="
+                padding: 5px 0;
+                text-align: left;
+              "
+            >
+              <div
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  margin-bottom: 6px;
+                  padding: 4px 9px;
+                  color: ${urgency.color};
+                  background: ${urgency.backgroundColor};
+                  border: 1px solid ${urgency.borderColor};
+                  border-radius: 999px;
+                  font-size: 14px;
+                  font-weight: 700;
+                  line-height: 1.25;
+                  box-sizing: border-box;
+                "
+              >
+                ${urgency.iconHtml}
+
+                <span>
+                  ${urgency.label}
+                  &nbsp;•&nbsp;
+                  ${escapeHtml(time)}
+                </span>
+              </div>
+
+              <div
+                style="
+                  color: #4b5563;
+                  font-size: 14px;
+                  font-weight: 400;
+                  line-height: 1.55;
+                  overflow-wrap: anywhere;
+                "
+              >
+                ${source}
+                &nbsp;→&nbsp;
+                ${destination}
+              </div>
+            </div>
+          `;
+        },
+      )
+      .join(
+        `
           <div
             style="
-              padding: 5px 0;
-              text-align: left;
+              height: 1px;
+              margin: 5px 0;
+              background: #e5e7eb;
             "
-          >
-            <div
-              style="
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                margin-bottom: 6px;
-                padding: 4px 9px;
-                color: ${urgency.color};
-                background: ${urgency.backgroundColor};
-                border: 1px solid ${urgency.borderColor};
-                border-radius: 999px;
-                font-size: 14px;
-                font-weight: 700;
-                line-height: 1.25;
-                box-sizing: border-box;
-              "
-            >
-              ${urgency.iconHtml}
-
-              <span>
-                ${urgency.label}
-                &nbsp;•&nbsp;
-                ${escapeHtml(time)}
-              </span>
-            </div>
-
-            <div
-              style="
-                color: #4b5563;
-                font-size: 14px;
-                font-weight: 400;
-                line-height: 1.55;
-                overflow-wrap: anywhere;
-              "
-            >
-              ${source}
-              &nbsp;→&nbsp;
-              ${destination}
-            </div>
-          </div>
-        `;
-      })
-      .join(`
-        <div
-          style="
-            height: 1px;
-            margin: 5px 0;
-            background: #e5e7eb;
-          "
-        ></div>
-      `);
+          ></div>
+        `,
+      );
 
   const remainingCount =
-    newJobs.length - displayedJobs.length;
+    newJobs.length
+    - displayedJobs.length;
 
   const remainingHtml =
     remainingCount > 0
@@ -503,24 +559,46 @@ type ActivityDateTimeParts = {
 function parseActivityDateTime(
   value: string | null | undefined,
 ): ActivityDateTimeParts | null {
-  const text = String(value ?? "").trim();
+  const text = String(
+    value ?? "",
+  ).trim();
 
-  if (!text || text === "-") {
+  if (
+    !text
+    || text === "-"
+  ) {
     return null;
   }
 
-  const slashMatched = text.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
-  );
+  const slashMatched =
+    text.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
+    );
 
   if (slashMatched) {
-    const day = Number(slashMatched[1]);
-    const month = Number(slashMatched[2]);
-    let year = Number(slashMatched[3]);
+    const day =
+      Number(
+        slashMatched[1],
+      );
 
-    if (slashMatched[3].length === 2) {
+    const month =
+      Number(
+        slashMatched[2],
+      );
+
+    let year =
+      Number(
+        slashMatched[3],
+      );
+
+    if (
+      slashMatched[3].length
+      === 2
+    ) {
       year += 2500;
-    } else if (year < 2400) {
+    } else if (
+      year < 2400
+    ) {
       year += 543;
     }
 
@@ -528,28 +606,53 @@ function parseActivityDateTime(
       day,
       month,
       year,
-      hour: slashMatched[4].padStart(2, "0"),
-      minute: slashMatched[5],
+
+      hour:
+        slashMatched[4].padStart(
+          2,
+          "0",
+        ),
+
+      minute:
+        slashMatched[5],
     };
   }
 
-  const sqlMatched = text.match(
-    /^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?/,
-  );
+  const sqlMatched =
+    text.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?/,
+    );
 
   if (sqlMatched) {
     const christianYear =
-      Number(sqlMatched[1]);
+      Number(
+        sqlMatched[1],
+      );
 
     return {
-      day: Number(sqlMatched[3]),
-      month: Number(sqlMatched[2]),
+      day:
+        Number(
+          sqlMatched[3],
+        ),
+
+      month:
+        Number(
+          sqlMatched[2],
+        ),
+
       year:
         christianYear < 2400
           ? christianYear + 543
           : christianYear,
-      hour: sqlMatched[4].padStart(2, "0"),
-      minute: sqlMatched[5],
+
+      hour:
+        sqlMatched[4].padStart(
+          2,
+          "0",
+        ),
+
+      minute:
+        sqlMatched[5],
     };
   }
 
@@ -560,7 +663,9 @@ function formatThaiActivityDate(
   value: ActivityDateTimeParts,
 ): string {
   const monthName =
-    THAI_MONTHS[value.month - 1];
+    THAI_MONTHS[
+      value.month - 1
+    ];
 
   if (!monthName) {
     return "-";
@@ -578,26 +683,43 @@ function formatActivityPeriod(
   finishedAt: string | null | undefined,
 ): string {
   const assigned =
-    parseActivityDateTime(assignedAt);
+    parseActivityDateTime(
+      assignedAt,
+    );
 
   const finished =
-    parseActivityDateTime(finishedAt);
+    parseActivityDateTime(
+      finishedAt,
+    );
 
-  if (!assigned && !finished) {
+  if (
+    !assigned
+    && !finished
+  ) {
     return "-";
   }
 
-  if (assigned && finished) {
+  if (
+    assigned
+    && finished
+  ) {
     const assignedDate =
-      formatThaiActivityDate(assigned);
+      formatThaiActivityDate(
+        assigned,
+      );
 
     const finishedDate =
-      formatThaiActivityDate(finished);
+      formatThaiActivityDate(
+        finished,
+      );
 
     const isSameDate =
-      assigned.day === finished.day
-      && assigned.month === finished.month
-      && assigned.year === finished.year;
+      assigned.day
+        === finished.day
+      && assigned.month
+        === finished.month
+      && assigned.year
+        === finished.year;
 
     if (isSameDate) {
       return (
@@ -619,7 +741,9 @@ function formatActivityPeriod(
 
   if (assigned) {
     return (
-      `${formatThaiActivityDate(assigned)} `
+      `${formatThaiActivityDate(
+        assigned,
+      )} `
       + `${assigned.hour}:${assigned.minute}`
       + " - ยังไม่เสร็จสิ้น"
     );
@@ -627,7 +751,9 @@ function formatActivityPeriod(
 
   return (
     `ไม่พบเวลาเริ่ม - `
-    + `${formatThaiActivityDate(finished!)} `
+    + `${formatThaiActivityDate(
+      finished!,
+    )} `
     + `${finished!.hour}:${finished!.minute}`
   );
 }
@@ -639,14 +765,8 @@ export default function PorterDashboard({
   viewMode = "active",
   disableActiveJobRedirect = false,
 }: Props) {
-  const router = useRouter();
-
-  // ============================
-  // LOGOUT
-  // ============================
-  function handleLogout(): void {
-    router.replace("/mobile-porter/login");
-  }
+  const router =
+    useRouter();
 
   const knownJobReqNosRef =
     useRef<Set<string>>(
@@ -658,14 +778,6 @@ export default function PorterDashboard({
 
   const isFinishedView =
     viewMode === "finished";
-
-  const staffDisplay = staffNo
-    ? `(${staffNo})${
-        staffName
-          ? ` ${staffName}`
-          : ""
-      }`
-    : "-";
 
   const headerSubtitle =
     isFinishedView
@@ -691,7 +803,8 @@ export default function PorterDashboard({
     const currentReqNos =
       new Set(
         jobs.map(
-          (job) => job.reqNo,
+          (job) =>
+            job.reqNo,
         ),
       );
 
@@ -722,25 +835,50 @@ export default function PorterDashboard({
     knownJobReqNosRef.current =
       currentReqNos;
 
-    if (newJobs.length === 0) {
+    if (
+      newJobs.length
+      === 0
+    ) {
       return;
     }
 
     const alertTitle =
       newJobs.length === 1
         ? "มีเคสใหม่ค่ะ"
-        : `มีเคสใหม่ ${newJobs.length} เคสค่ะ`;
+        : (
+          `มีเคสใหม่ `
+          + `${newJobs.length} เคสค่ะ`
+        );
 
     void Swal.fire({
-      position: "top-end",
-      toast: true,
-      icon: "info",
-      title: alertTitle,
-      html: buildNewCaseAlertHtml(newJobs),
-      showConfirmButton: false,
-      timer: 5000,
-      timerProgressBar: true,
-      width: "390px",
+      position:
+        "top-end",
+
+      toast:
+        true,
+
+      icon:
+        "info",
+
+      title:
+        alertTitle,
+
+      html:
+        buildNewCaseAlertHtml(
+          newJobs,
+        ),
+
+      showConfirmButton:
+        false,
+
+      timer:
+        5000,
+
+      timerProgressBar:
+        true,
+
+      width:
+        "390px",
     });
   }, [
     isFinishedView,
@@ -748,7 +886,8 @@ export default function PorterDashboard({
   ]);
 
   useEffect(() => {
-    let isDisposed = false;
+    let isDisposed =
+      false;
 
     async function checkCurrentAssignment(): Promise<boolean> {
       if (
@@ -771,10 +910,11 @@ export default function PorterDashboard({
           return false;
         }
 
+        // =========================
+        // ไม่ส่ง userid ใน URL แล้ว
+        // =========================
         router.replace(
-          `/mobile-porter/current?userid=${
-            encodeURIComponent(staffNo)
-          }`,
+          "/mobile-porter/current",
         );
 
         return true;
@@ -790,7 +930,8 @@ export default function PorterDashboard({
 
     async function refreshJobs(): Promise<void> {
       if (
-        document.visibilityState !== "visible"
+        document.visibilityState
+        !== "visible"
       ) {
         return;
       }
@@ -820,7 +961,8 @@ export default function PorterDashboard({
 
     function handleVisibilityChange(): void {
       if (
-        document.visibilityState === "visible"
+        document.visibilityState
+        === "visible"
       ) {
         void refreshJobs();
       }
@@ -832,9 +974,12 @@ export default function PorterDashboard({
     );
 
     return () => {
-      isDisposed = true;
+      isDisposed =
+        true;
 
-      window.clearInterval(timer);
+      window.clearInterval(
+        timer,
+      );
 
       document.removeEventListener(
         "visibilitychange",
@@ -850,72 +995,42 @@ export default function PorterDashboard({
   function handleViewChange(
     nextView: DashboardView,
   ): void {
-    if (nextView === viewMode) {
+    if (
+      nextView
+      === viewMode
+    ) {
       return;
     }
 
-    const query =
-      new URLSearchParams();
-
-    if (staffNo) {
-      query.set(
-        "userid",
-        staffNo,
+    // =========================
+    // ไม่ส่ง userid แล้ว
+    // =========================
+    if (
+      nextView
+      === "finished"
+    ) {
+      router.replace(
+        "/mobile-porter?view=finished",
       );
+
+      return;
     }
 
-    query.set(
-      "view",
-      nextView,
-    );
-
     router.replace(
-      `/mobile-porter?${query.toString()}`,
+      "/mobile-porter",
     );
   }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <header style={styles.header}>
-          <div style={styles.headerMain}>
-            <div style={styles.headerIcon}>
-              <AmbulanceIcon
-                size={30}
-                color="#ffffff"
-              />
-            </div>
-
-            <div style={styles.headerTitleArea}>
-              <div style={styles.title}>
-                ระบบรับงานพนักงานเปล
-              </div>
-
-              <div style={styles.subtitle}>
-                {headerSubtitle}
-              </div>
-            </div>
-
-            {/* ปุ่มออกจากระบบ */}
-            <button
-              type="button"
-              onClick={handleLogout}
-              style={styles.logoutButton}
-              title="ออกจากระบบ"
-              aria-label="ออกจากระบบ"
-            >
-              ออกจากระบบ
-            </button>
-
-          </div>
-
-          <div
-            style={styles.userBox}
-            title={staffDisplay}
-          >
-            {staffDisplay}
-          </div>
-        </header>
+        <PorterHeader
+          staffNo={staffNo}
+          staffName={staffName}
+          title="ระบบรับงานพนักงานเปล"
+          subtitle={headerSubtitle}
+          showLogout
+        />
 
         <section style={styles.listCard}>
           <div style={styles.listHeader}>
@@ -937,17 +1052,23 @@ export default function PorterDashboard({
                   type="button"
                   role="tab"
                   aria-selected={
-                    viewMode === "active"
+                    viewMode
+                    === "active"
                   }
                   onClick={() =>
-                    handleViewChange("active")
+                    handleViewChange(
+                      "active",
+                    )
                   }
                   style={{
                     ...styles.statusSwitchButton,
 
-                    ...(viewMode === "active"
-                      ? styles.statusSwitchActive
-                      : styles.statusSwitchInactive),
+                    ...(
+                      viewMode
+                      === "active"
+                        ? styles.statusSwitchActive
+                        : styles.statusSwitchInactive
+                    ),
                   }}
                 >
                   กำลังดำเนินการ
@@ -957,267 +1078,381 @@ export default function PorterDashboard({
                   type="button"
                   role="tab"
                   aria-selected={
-                    viewMode === "finished"
+                    viewMode
+                    === "finished"
                   }
                   onClick={() =>
-                    handleViewChange("finished")
+                    handleViewChange(
+                      "finished",
+                    )
                   }
                   style={{
                     ...styles.statusSwitchButton,
 
-                    ...(viewMode === "finished"
-                      ? styles.statusSwitchFinished
-                      : styles.statusSwitchInactive),
+                    ...(
+                      viewMode
+                      === "finished"
+                        ? styles.statusSwitchFinished
+                        : styles.statusSwitchInactive
+                    ),
                   }}
                 >
                   เสร็จสิ้น
                 </button>
               </div>
 
-              <div style={styles.listSubtitle}>
+              <div
+                style={
+                  styles.listSubtitle
+                }
+              >
                 {listSubtitle}
               </div>
             </div>
 
-            <div style={styles.countBadge}>
+            <div
+              style={
+                styles.countBadge
+              }
+            >
               {jobs.length} เคส
             </div>
           </div>
 
           {jobs.length === 0 ? (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIcon}>
+            <div
+              style={
+                styles.emptyState
+              }
+            >
+              <div
+                style={
+                  styles.emptyIcon
+                }
+              >
                 ✓
               </div>
 
-              <div style={styles.emptyTitle}>
+              <div
+                style={
+                  styles.emptyTitle
+                }
+              >
                 {emptyTitle}
               </div>
 
-              <div style={styles.emptyText}>
+              <div
+                style={
+                  styles.emptyText
+                }
+              >
                 {emptyText}
               </div>
             </div>
           ) : (
-            <div style={styles.jobList}>
-              {jobs.map((job, index) => {
-                const encodedReqNo =
-                  encodeURIComponent(job.reqNo);
+            <div
+              style={
+                styles.jobList
+              }
+            >
+              {jobs.map(
+                (
+                  job,
+                  index,
+                ) => {
+                  const encodedReqNo =
+                    encodeURIComponent(
+                      job.reqNo,
+                    );
 
-                const detailUrl = staffNo
-                  ? (
-                    `/mobile-porter/${encodedReqNo}`
-                    + `?userid=${encodeURIComponent(
-                      staffNo,
-                    )}`
-                  )
-                  : `/mobile-porter/${encodedReqNo}`;
+                  // =========================
+                  // ไม่มี ?userid=... แล้ว
+                  // =========================
+                  const detailUrl =
+                    `/mobile-porter/${encodedReqNo}`;
 
-                const rowStyle: CSSProperties = {
-                  ...styles.jobRow,
+                  const rowStyle: CSSProperties = {
+                    ...styles.jobRow,
 
-                  gridTemplateColumns:
-                    isFinishedView
-                      ? "32px minmax(0, 1fr) auto"
-                      : "32px minmax(0, 1fr) 20px",
-                };
+                    gridTemplateColumns:
+                      isFinishedView
+                        ? (
+                          "32px "
+                          + "minmax(0, 1fr) "
+                          + "auto"
+                        )
+                        : (
+                          "32px "
+                          + "minmax(0, 1fr) "
+                          + "20px"
+                        ),
+                  };
 
-                const rowContent = (
-                  <>
-                    <div style={styles.jobNumber}>
-                      {index + 1}
-                    </div>
+                  const rowContent = (
+                    <>
+                      <div
+                        style={
+                          styles.jobNumber
+                        }
+                      >
+                        {index + 1}
+                      </div>
 
-                    <div style={styles.routeArea}>
-                      {isFinishedView && (
-                        <div
-                          style={
-                            styles.finishedReqNoBlock
-                          }
-                        >
+                      <div
+                        style={
+                          styles.routeArea
+                        }
+                      >
+                        {isFinishedView && (
                           <div
                             style={
-                              styles.finishedReqNoLabel
-                            }
-                          >
-                            รหัสงาน
-                          </div>
-
-                          <div
-                            style={
-                              styles.finishedReqNoValue
-                            }
-                          >
-                            {job.reqNo || "-"}
-                          </div>
-                        </div>
-                      )}
-
-                      <div style={styles.routeRow}>
-                        <div style={styles.sourcePoint}>
-                          <span
-                            style={styles.sourceDot}
-                          />
-
-                          <span
-                            style={styles.routeLineTop}
-                          />
-                        </div>
-
-                        <div style={styles.routeText}>
-                          <div
-                            style={
-                              styles.routeHeaderRow
+                              styles.finishedReqNoBlock
                             }
                           >
                             <div
-                              style={styles.routeLabel}
+                              style={
+                                styles.finishedReqNoLabel
+                              }
                             >
-                              ต้นทาง
+                              รหัสงาน
                             </div>
 
-                            {!isFinishedView && (
-                              <span
-                                style={{
-                                  ...styles.jobTimeBadge,
-                                  ...getTimeBadgeStyle(
-                                    job.fastTrack,
-                                  ),
-                                }}
-                                title={
-                                  job.fastTrackText
+                            <div
+                              style={
+                                styles.finishedReqNoValue
+                              }
+                            >
+                              {
+                                job.reqNo
+                                || "-"
+                              }
+                            </div>
+                          </div>
+                        )}
+
+                        <div
+                          style={
+                            styles.routeRow
+                          }
+                        >
+                          <div
+                            style={
+                              styles.sourcePoint
+                            }
+                          >
+                            <span
+                              style={
+                                styles.sourceDot
+                              }
+                            />
+
+                            <span
+                              style={
+                                styles.routeLineTop
+                              }
+                            />
+                          </div>
+
+                          <div
+                            style={
+                              styles.routeText
+                            }
+                          >
+                            <div
+                              style={
+                                styles.routeHeaderRow
+                              }
+                            >
+                              <div
+                                style={
+                                  styles.routeLabel
                                 }
                               >
+                                ต้นทาง
+                              </div>
+
+                              {!isFinishedView && (
                                 <span
-                                  style={
-                                    styles.jobTimeBadgeIcon
+                                  style={{
+                                    ...styles.jobTimeBadge,
+
+                                    ...getTimeBadgeStyle(
+                                      job.fastTrack,
+                                    ),
+                                  }}
+                                  title={
+                                    job.fastTrackText
                                   }
                                 >
-                                  {getTimeBadgeIcon(
-                                    job.fastTrack,
-                                  )}
-                                </span>
+                                  <span
+                                    style={
+                                      styles.jobTimeBadgeIcon
+                                    }
+                                  >
+                                    {getTimeBadgeIcon(
+                                      job.fastTrack,
+                                    )}
+                                  </span>
 
-                                <span>
-                                  {getTimeOnly(
-                                    job.createdAtShort,
-                                  )}
+                                  <span>
+                                    {getTimeOnly(
+                                      job.createdAtShort,
+                                    )}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
-                          </div>
+                              )}
+                            </div>
 
-                          <div style={styles.routeValue}>
-                            {job.locSource || "-"}
+                            <div
+                              style={
+                                styles.routeValue
+                              }
+                            >
+                              {
+                                job.locSource
+                                || "-"
+                              }
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div style={styles.routeRow}>
                         <div
                           style={
-                            styles.destinationPoint
-                          }
-                        >
-                          <span
-                            style={
-                              styles.destinationDot
-                            }
-                          />
-                        </div>
-
-                        <div style={styles.routeText}>
-                          <div
-                            style={
-                              styles.destinationLabel
-                            }
-                          >
-                            ปลายทาง
-                          </div>
-
-                          <div style={styles.routeValue}>
-                            {job.locDest || "-"}
-                          </div>
-                        </div>
-                      </div>
-
-                      {isFinishedView && (
-                        <div
-                          style={
-                            styles.finishedDateBlock
+                            styles.routeRow
                           }
                         >
                           <div
                             style={
-                              styles.finishedDateLabel
+                              styles.destinationPoint
                             }
                           >
-                            เวลาเริ่มทำกิจกรรม - เวลาเสร็จสิ้น
+                            <span
+                              style={
+                                styles.destinationDot
+                              }
+                            />
                           </div>
 
                           <div
                             style={
-                              styles.finishedDateValue
+                              styles.routeText
                             }
                           >
-                            {formatActivityPeriod(
-                              job.assignedAt,
-                              job.finishedAt,
-                            )}
+                            <div
+                              style={
+                                styles.destinationLabel
+                              }
+                            >
+                              ปลายทาง
+                            </div>
+
+                            <div
+                              style={
+                                styles.routeValue
+                              }
+                            >
+                              {
+                                job.locDest
+                                || "-"
+                              }
+                            </div>
                           </div>
+                        </div>
+
+                        {isFinishedView && (
+                          <div
+                            style={
+                              styles.finishedDateBlock
+                            }
+                          >
+                            <div
+                              style={
+                                styles.finishedDateLabel
+                              }
+                            >
+                              เวลาเริ่มทำกิจกรรม - เวลาเสร็จสิ้น
+                            </div>
+
+                            <div
+                              style={
+                                styles.finishedDateValue
+                              }
+                            >
+                              {formatActivityPeriod(
+                                job.assignedAt,
+                                job.finishedAt,
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {isFinishedView ? (
+                        <div
+                          style={
+                            styles.finishedBadge
+                          }
+                          title="เสร็จสิ้น"
+                        >
+                          เสร็จสิ้น
+                        </div>
+                      ) : (
+                        <div
+                          style={
+                            styles.arrow
+                          }
+                          aria-hidden="true"
+                        >
+                          ›
                         </div>
                       )}
-                    </div>
+                    </>
+                  );
 
-                    {isFinishedView ? (
+                  if (
+                    isFinishedView
+                  ) {
+                    return (
                       <div
-                        style={
-                          styles.finishedBadge
+                        key={
+                          `${job.reqNo}-${index}`
                         }
-                        title="เสร็จสิ้น"
+                        style={
+                          rowStyle
+                        }
                       >
-                        เสร็จสิ้น
+                        {rowContent}
                       </div>
-                    ) : (
-                      <div
-                        style={styles.arrow}
-                        aria-hidden="true"
-                      >
-                        ›
-                      </div>
-                    )}
-                  </>
-                );
+                    );
+                  }
 
-                if (isFinishedView) {
                   return (
-                    <div
-                      key={`${job.reqNo}-${index}`}
-                      style={rowStyle}
+                    <Link
+                      key={
+                        `${job.reqNo}-${index}`
+                      }
+                      href={
+                        detailUrl
+                      }
+                      style={
+                        rowStyle
+                      }
+                      aria-label={
+                        `รายการที่ ${index + 1} `
+                        + `ต้นทาง ${job.locSource} `
+                        + `ปลายทาง ${job.locDest} `
+                        + `เวลา ${
+                          getTimeOnly(
+                            job.createdAtShort,
+                          )
+                        }`
+                      }
                     >
                       {rowContent}
-                    </div>
+                    </Link>
                   );
-                }
-
-                return (
-                  <Link
-                    key={`${job.reqNo}-${index}`}
-                    href={detailUrl}
-                    style={rowStyle}
-                    aria-label={
-                      `รายการที่ ${index + 1} `
-                      + `ต้นทาง ${job.locSource} `
-                      + `ปลายทาง ${job.locDest} `
-                      + `เวลา ${getTimeOnly(
-                        job.createdAtShort,
-                      )}`
-                    }
-                  >
-                    {rowContent}
-                  </Link>
-                );
-              })}
+                },
+              )}
             </div>
           )}
         </section>
@@ -1231,197 +1466,167 @@ const styles: Record<
   CSSProperties
 > = {
   page: {
-    minHeight: "100vh",
-    padding: "10px",
-    background: "#eef3f8",
+    minHeight:
+      "100vh",
+
+    padding:
+      "10px",
+
+    background:
+      "#eef3f8",
+
     fontFamily:
       'Tahoma, "Noto Sans Thai", Arial, sans-serif',
   },
 
   container: {
-    width: "100%",
-    maxWidth: "430px",
-    margin: "0 auto",
-  },
+    width:
+      "100%",
 
-  header: {
-    marginBottom: "12px",
-    padding: "16px",
-    borderRadius: "18px",
-    color: "#ffffff",
-    background:
-      "linear-gradient(135deg, #0d5ca6, #1b77c8)",
-    boxShadow:
-      "0 8px 22px rgba(13,92,166,0.18)",
-  },
+    maxWidth:
+      "430px",
 
-  headerMain: {
-    display: "flex",
-    alignItems: "center",
-    gap: "11px",
-  },
-
-  headerIcon: {
-    width: "46px",
-    height: "46px",
-    flex: "0 0 46px",
-    display: "grid",
-    placeItems: "center",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor:
-      "rgba(255,255,255,0.24)",
-    borderRadius: "14px",
-    background:
-      "rgba(255,255,255,0.15)",
-  },
-
-  headerTitleArea: {
-    minWidth: 0,
-    flex: 1,
-  },
-
-  /* ปุ่มออกจากระบบ */
-  logoutButton: {
-    flex: "0 0 auto",
-    minHeight: "34px",
-    padding: "6px 9px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "5px",
-
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor:
-      "rgba(255,255,255,0.42)",
-    borderRadius: "9px",
-
-    color: "#ffffff",
-    background:
-      "rgba(255,255,255,0.13)",
-
-    fontFamily: "inherit",
-    fontSize: "11px",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-
-    cursor: "pointer",
-
-    WebkitTapHighlightColor:
-      "transparent",
-
-    boxSizing: "border-box",
-  },
-
-  logoutIcon: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "16px",
-    lineHeight: 1,
-  },
-
-  title: {
-    fontSize: "19px",
-    fontWeight: 700,
-    lineHeight: 1.35,
-  },
-
-  subtitle: {
-    marginTop: "3px",
-    fontSize: "12px",
-    opacity: 0.88,
-  },
-
-  userBox: {
-    width: "100%",
-    marginTop: "12px",
-    padding: "9px 11px",
-    overflow: "hidden",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor:
-      "rgba(255,255,255,0.12)",
-    borderRadius: "11px",
-    background:
-      "rgba(255,255,255,0.18)",
-    fontSize: "13px",
-    fontWeight: 700,
-    whiteSpace: "nowrap",
-    textOverflow: "ellipsis",
-    boxSizing: "border-box",
+    margin:
+      "0 auto",
   },
 
   listCard: {
-    overflow: "hidden",
-    borderRadius: "18px",
-    background: "#ffffff",
+    overflow:
+      "hidden",
+
+    borderRadius:
+      "18px",
+
+    background:
+      "#ffffff",
+
     boxShadow:
       "0 8px 22px rgba(0,0,0,0.06)",
   },
 
   listHeader: {
-    padding: "14px 15px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    borderBottomWidth: "1px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "#e5edf5",
+    padding:
+      "14px 15px",
+
+    display:
+      "flex",
+
+    alignItems:
+      "center",
+
+    justifyContent:
+      "space-between",
+
+    gap:
+      "10px",
+
+    borderBottomWidth:
+      "1px",
+
+    borderBottomStyle:
+      "solid",
+
+    borderBottomColor:
+      "#e5edf5",
   },
 
   statusArea: {
-    minWidth: 0,
-    flex: 1,
+    minWidth:
+      0,
+
+    flex:
+      1,
   },
 
   statusLabel: {
-    display: "block",
-    marginBottom: "4px",
-    color: "#718498",
-    fontSize: "10px",
+    display:
+      "block",
+
+    marginBottom:
+      "4px",
+
+    color:
+      "#718498",
+
+    fontSize:
+      "10px",
   },
 
   statusSwitch: {
-    width: "100%",
-    maxWidth: "300px",
+    width:
+      "100%",
 
-    display: "grid",
+    maxWidth:
+      "300px",
+
+    display:
+      "grid",
+
     gridTemplateColumns:
       "repeat(2, minmax(0, 1fr))",
 
-    padding: "3px",
-    gap: "3px",
+    padding:
+      "3px",
 
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#c9d9e8",
+    gap:
+      "3px",
 
-    borderRadius: "12px",
-    background: "#eef3f8",
+    borderWidth:
+      "1px",
 
-    boxSizing: "border-box",
+    borderStyle:
+      "solid",
+
+    borderColor:
+      "#c9d9e8",
+
+    borderRadius:
+      "12px",
+
+    background:
+      "#eef3f8",
+
+    boxSizing:
+      "border-box",
   },
 
   statusSwitchButton: {
-    minWidth: 0,
-    minHeight: "38px",
-    padding: "7px 9px",
+    minWidth:
+      0,
 
-    borderWidth: 0,
-    borderStyle: "none",
-    borderRadius: "9px",
+    minHeight:
+      "38px",
 
-    fontFamily: "inherit",
-    fontSize: "13px",
-    fontWeight: 700,
-    lineHeight: 1.25,
-    whiteSpace: "nowrap",
+    padding:
+      "7px 9px",
 
-    cursor: "pointer",
+    borderWidth:
+      0,
+
+    borderStyle:
+      "none",
+
+    borderRadius:
+      "9px",
+
+    fontFamily:
+      "inherit",
+
+    fontSize:
+      "13px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.25,
+
+    whiteSpace:
+      "nowrap",
+
+    cursor:
+      "pointer",
+
     transition:
       "background-color 0.15s ease, "
       + "color 0.15s ease, "
@@ -1430,322 +1635,693 @@ const styles: Record<
     WebkitTapHighlightColor:
       "transparent",
 
-    boxSizing: "border-box",
+    boxSizing:
+      "border-box",
   },
 
   statusSwitchActive: {
-    color: "#ffffff",
-    background: "#176fca",
+    color:
+      "#ffffff",
+
+    background:
+      "#176fca",
+
     boxShadow:
       "0 3px 8px rgba(23,111,202,0.24)",
   },
 
   statusSwitchFinished: {
-    color: "#ffffff",
-    background: "#23885a",
+    color:
+      "#ffffff",
+
+    background:
+      "#23885a",
+
     boxShadow:
       "0 3px 8px rgba(35,136,90,0.24)",
   },
 
   statusSwitchInactive: {
-    color: "#5f7285",
-    background: "transparent",
-    boxShadow: "none",
+    color:
+      "#5f7285",
+
+    background:
+      "transparent",
+
+    boxShadow:
+      "none",
   },
 
   listSubtitle: {
-    marginTop: "5px",
-    color: "#7b8ea1",
-    fontSize: "11px",
-    lineHeight: 1.35,
+    marginTop:
+      "5px",
+
+    color:
+      "#7b8ea1",
+
+    fontSize:
+      "11px",
+
+    lineHeight:
+      1.35,
   },
 
   countBadge: {
-    flex: "0 0 auto",
-    padding: "7px 11px",
-    borderRadius: "999px",
-    color: "#0d5ca6",
-    background: "#e8f2fc",
-    fontSize: "13px",
-    fontWeight: 700,
-    whiteSpace: "nowrap",
+    flex:
+      "0 0 auto",
+
+    padding:
+      "7px 11px",
+
+    borderRadius:
+      "999px",
+
+    color:
+      "#0d5ca6",
+
+    background:
+      "#e8f2fc",
+
+    fontSize:
+      "13px",
+
+    fontWeight:
+      700,
+
+    whiteSpace:
+      "nowrap",
   },
 
   jobList: {
-    display: "grid",
-    padding: "7px",
-    gap: "7px",
-    background: "#f4f7fa",
+    display:
+      "grid",
+
+    padding:
+      "7px",
+
+    gap:
+      "7px",
+
+    background:
+      "#f4f7fa",
   },
 
   jobRow: {
-    minHeight: "112px",
-    padding: "13px 11px",
-    display: "grid",
-    alignItems: "start",
-    columnGap: "9px",
-    color: "inherit",
-    background: "#ffffff",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#edf2f6",
-    borderRadius: "14px",
+    minHeight:
+      "112px",
+
+    padding:
+      "13px 11px",
+
+    display:
+      "grid",
+
+    alignItems:
+      "start",
+
+    columnGap:
+      "9px",
+
+    color:
+      "inherit",
+
+    background:
+      "#ffffff",
+
+    borderWidth:
+      "1px",
+
+    borderStyle:
+      "solid",
+
+    borderColor:
+      "#edf2f6",
+
+    borderRadius:
+      "14px",
+
     boxShadow:
       "0 4px 14px rgba(18,66,105,0.07)",
-    textDecoration: "none",
+
+    textDecoration:
+      "none",
+
     WebkitTapHighlightColor:
       "transparent",
-    boxSizing: "border-box",
+
+    boxSizing:
+      "border-box",
   },
 
   jobNumber: {
-    gridColumn: "1",
-    gridRow: "1",
-    width: "30px",
-    height: "30px",
-    display: "grid",
-    placeItems: "center",
-    borderRadius: "9px",
-    color: "#ffffff",
+    gridColumn:
+      "1",
+
+    gridRow:
+      "1",
+
+    width:
+      "30px",
+
+    height:
+      "30px",
+
+    display:
+      "grid",
+
+    placeItems:
+      "center",
+
+    borderRadius:
+      "9px",
+
+    color:
+      "#ffffff",
+
     background:
       "linear-gradient(135deg, #0d5ca6, #147bc9)",
+
     boxShadow:
       "0 4px 9px rgba(13,92,166,0.18)",
-    fontSize: "15px",
-    fontWeight: 700,
+
+    fontSize:
+      "15px",
+
+    fontWeight:
+      700,
   },
 
   routeArea: {
-    gridColumn: "2",
-    gridRow: "1",
-    minWidth: 0,
-    display: "grid",
-    gap: "8px",
+    gridColumn:
+      "2",
+
+    gridRow:
+      "1",
+
+    minWidth:
+      0,
+
+    display:
+      "grid",
+
+    gap:
+      "8px",
   },
 
   routeRow: {
-    minWidth: 0,
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "9px",
+    minWidth:
+      0,
+
+    display:
+      "flex",
+
+    alignItems:
+      "flex-start",
+
+    gap:
+      "9px",
   },
 
   sourcePoint: {
-    width: "12px",
-    flex: "0 0 12px",
-    position: "relative",
-    display: "flex",
-    justifyContent: "center",
+    width:
+      "12px",
+
+    flex:
+      "0 0 12px",
+
+    position:
+      "relative",
+
+    display:
+      "flex",
+
+    justifyContent:
+      "center",
   },
 
   destinationPoint: {
-    width: "12px",
-    flex: "0 0 12px",
-    display: "flex",
-    justifyContent: "center",
+    width:
+      "12px",
+
+    flex:
+      "0 0 12px",
+
+    display:
+      "flex",
+
+    justifyContent:
+      "center",
   },
 
   sourceDot: {
-    width: "8px",
-    height: "8px",
-    marginTop: "5px",
-    zIndex: 2,
-    borderRadius: "50%",
-    background: "#2786d8",
+    width:
+      "8px",
+
+    height:
+      "8px",
+
+    marginTop:
+      "5px",
+
+    zIndex:
+      2,
+
+    borderRadius:
+      "50%",
+
+    background:
+      "#2786d8",
+
     boxShadow:
       "0 0 0 3px #e0f0ff",
   },
 
   destinationDot: {
-    width: "8px",
-    height: "8px",
-    marginTop: "5px",
-    borderRadius: "50%",
-    background: "#2eaa68",
+    width:
+      "8px",
+
+    height:
+      "8px",
+
+    marginTop:
+      "5px",
+
+    borderRadius:
+      "50%",
+
+    background:
+      "#2eaa68",
+
     boxShadow:
       "0 0 0 3px #e2f5ea",
   },
 
   routeLineTop: {
-    width: "2px",
-    height: "30px",
-    position: "absolute",
-    top: "13px",
-    background: "#cedae6",
+    width:
+      "2px",
+
+    height:
+      "30px",
+
+    position:
+      "absolute",
+
+    top:
+      "13px",
+
+    background:
+      "#cedae6",
   },
 
   routeText: {
-    minWidth: 0,
-    flex: 1,
+    minWidth:
+      0,
+
+    flex:
+      1,
   },
 
   routeHeaderRow: {
-    minWidth: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "6px",
-    marginBottom: "3px",
+    minWidth:
+      0,
+
+    display:
+      "flex",
+
+    alignItems:
+      "center",
+
+    justifyContent:
+      "space-between",
+
+    gap:
+      "6px",
+
+    marginBottom:
+      "3px",
   },
 
   routeLabel: {
-    flex: "0 0 auto",
-    color: "#2475bd",
-    fontSize: "11px",
+    flex:
+      "0 0 auto",
+
+    color:
+      "#2475bd",
+
+    fontSize:
+      "11px",
   },
 
   destinationLabel: {
-    marginBottom: "3px",
-    color: "#2c9b61",
-    fontSize: "11px",
+    marginBottom:
+      "3px",
+
+    color:
+      "#2c9b61",
+
+    fontSize:
+      "11px",
   },
 
   routeValue: {
-    minWidth: 0,
-    width: "100%",
-    color: "#17324d",
-    fontSize: "14px",
-    fontWeight: 700,
-    lineHeight: 1.4,
-    wordBreak: "normal",
-    overflowWrap: "break-word",
+    minWidth:
+      0,
+
+    width:
+      "100%",
+
+    color:
+      "#17324d",
+
+    fontSize:
+      "14px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.4,
+
+    wordBreak:
+      "normal",
+
+    overflowWrap:
+      "break-word",
   },
 
   jobTimeBadge: {
-    flex: "0 0 auto",
-    minWidth: "66px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "5px",
-    padding: "4px 8px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "transparent",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-    boxSizing: "border-box",
+    flex:
+      "0 0 auto",
+
+    minWidth:
+      "66px",
+
+    display:
+      "inline-flex",
+
+    alignItems:
+      "center",
+
+    justifyContent:
+      "center",
+
+    gap:
+      "5px",
+
+    padding:
+      "4px 8px",
+
+    borderWidth:
+      "1px",
+
+    borderStyle:
+      "solid",
+
+    borderColor:
+      "transparent",
+
+    borderRadius:
+      "999px",
+
+    fontSize:
+      "11px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.2,
+
+    whiteSpace:
+      "nowrap",
+
+    boxSizing:
+      "border-box",
   },
 
   jobTimeBadgeIcon: {
-    flex: "0 0 auto",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
+    flex:
+      "0 0 auto",
+
+    display:
+      "inline-flex",
+
+    alignItems:
+      "center",
+
+    justifyContent:
+      "center",
+
+    lineHeight:
+      1,
   },
 
   finishedDateBlock: {
-    marginTop: "4px",
-    marginLeft: "21px",
-    paddingTop: "8px",
-    borderTopWidth: "1px",
-    borderTopStyle: "dashed",
-    borderTopColor: "#dce7f0",
+    marginTop:
+      "4px",
+
+    marginLeft:
+      "21px",
+
+    paddingTop:
+      "8px",
+
+    borderTopWidth:
+      "1px",
+
+    borderTopStyle:
+      "dashed",
+
+    borderTopColor:
+      "#dce7f0",
   },
 
   finishedReqNoBlock: {
-    marginBottom: "1px",
-    paddingBottom: "8px",
-    borderBottomWidth: "1px",
-    borderBottomStyle: "dashed",
-    borderBottomColor: "#dce7f0",
+    marginBottom:
+      "1px",
+
+    paddingBottom:
+      "8px",
+
+    borderBottomWidth:
+      "1px",
+
+    borderBottomStyle:
+      "dashed",
+
+    borderBottomColor:
+      "#dce7f0",
   },
 
   finishedReqNoLabel: {
-    marginBottom: "2px",
-    color: "#7b8ea1",
-    fontSize: "10px",
-    lineHeight: 1.35,
+    marginBottom:
+      "2px",
+
+    color:
+      "#7b8ea1",
+
+    fontSize:
+      "10px",
+
+    lineHeight:
+      1.35,
   },
 
   finishedReqNoValue: {
-    color: "#0d5ca6",
-    fontSize: "14px",
-    fontWeight: 700,
-    lineHeight: 1.35,
-    overflowWrap: "anywhere",
+    color:
+      "#0d5ca6",
+
+    fontSize:
+      "14px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.35,
+
+    overflowWrap:
+      "anywhere",
   },
 
   finishedDateLabel: {
-    marginBottom: "3px",
-    color: "#7b8ea1",
-    fontSize: "10px",
-    lineHeight: 1.35,
+    marginBottom:
+      "3px",
+
+    color:
+      "#7b8ea1",
+
+    fontSize:
+      "10px",
+
+    lineHeight:
+      1.35,
   },
 
   finishedDateValue: {
-    color: "#17324d",
-    fontSize: "13px",
-    fontWeight: 700,
-    lineHeight: 1.35,
+    color:
+      "#17324d",
+
+    fontSize:
+      "13px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.35,
   },
 
   arrow: {
-    gridColumn: "3",
-    gridRow: "1",
-    alignSelf: "center",
-    width: "20px",
-    color: "#0d6fd1",
-    fontSize: "30px",
-    lineHeight: 1,
-    textAlign: "center",
+    gridColumn:
+      "3",
+
+    gridRow:
+      "1",
+
+    alignSelf:
+      "center",
+
+    width:
+      "20px",
+
+    color:
+      "#0d6fd1",
+
+    fontSize:
+      "30px",
+
+    lineHeight:
+      1,
+
+    textAlign:
+      "center",
   },
 
   finishedBadge: {
-    gridColumn: "3",
-    gridRow: "1",
-    alignSelf: "center",
-    minWidth: "74px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "7px 11px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#5ebf85",
-    borderRadius: "999px",
-    color: "#1e8a50",
-    background: "#f0fbf5",
-    fontSize: "12px",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-    boxSizing: "border-box",
-    transform: "translateY(-67px)",
+    gridColumn:
+      "3",
+
+    gridRow:
+      "1",
+
+    alignSelf:
+      "center",
+
+    minWidth:
+      "74px",
+
+    display:
+      "inline-flex",
+
+    alignItems:
+      "center",
+
+    justifyContent:
+      "center",
+
+    padding:
+      "7px 11px",
+
+    borderWidth:
+      "1px",
+
+    borderStyle:
+      "solid",
+
+    borderColor:
+      "#5ebf85",
+
+    borderRadius:
+      "999px",
+
+    color:
+      "#1e8a50",
+
+    background:
+      "#f0fbf5",
+
+    fontSize:
+      "12px",
+
+    fontWeight:
+      700,
+
+    lineHeight:
+      1.2,
+
+    whiteSpace:
+      "nowrap",
+
+    boxSizing:
+      "border-box",
+
+    transform:
+      "translateY(-67px)",
   },
 
   emptyState: {
-    padding: "42px 18px",
-    color: "#7b8ea1",
-    textAlign: "center",
+    padding:
+      "42px 18px",
+
+    color:
+      "#7b8ea1",
+
+    textAlign:
+      "center",
   },
 
   emptyIcon: {
-    width: "44px",
-    height: "44px",
-    margin: "0 auto 9px",
-    display: "grid",
-    placeItems: "center",
-    borderRadius: "50%",
-    color: "#258d55",
-    background: "#e9f8ef",
-    fontSize: "21px",
-    fontWeight: 700,
+    width:
+      "44px",
+
+    height:
+      "44px",
+
+    margin:
+      "0 auto 9px",
+
+    display:
+      "grid",
+
+    placeItems:
+      "center",
+
+    borderRadius:
+      "50%",
+
+    color:
+      "#258d55",
+
+    background:
+      "#e9f8ef",
+
+    fontSize:
+      "21px",
+
+    fontWeight:
+      700,
   },
 
   emptyTitle: {
-    marginBottom: "4px",
-    color: "#17324d",
-    fontSize: "16px",
-    fontWeight: 700,
+    marginBottom:
+      "4px",
+
+    color:
+      "#17324d",
+
+    fontSize:
+      "16px",
+
+    fontWeight:
+      700,
   },
 
   emptyText: {
-    fontSize: "12px",
-    lineHeight: 1.5,
+    fontSize:
+      "12px",
+
+    lineHeight:
+      1.5,
   },
 };

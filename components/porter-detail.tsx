@@ -12,8 +12,9 @@ import Swal from "sweetalert2";
 
 import type { PorterJob } from "@/types/porter";
 
+import PorterHeader from "@/components/porter-header";
+
 import {
-  AmbulanceIcon,
   ArrowLeftIcon,
   BedIcon,
   CalendarIcon,
@@ -201,10 +202,6 @@ function getEquipmentIcon(
   );
 }
 
-/**
- * ไอคอนสำหรับช่อง "รายละเอียด"
- * ใช้เส้นสีน้ำเงินให้เข้ากับไอคอนอื่น
- */
 function DetailDescriptionIcon({
   size = 22,
   color = "#1774c8",
@@ -258,16 +255,32 @@ function DetailItem({
           : {}),
       }}
     >
-      <div style={styles.detailIcon}>
+      <div
+        style={
+          styles.detailIcon
+        }
+      >
         {icon}
       </div>
 
-      <div style={styles.detailText}>
-        <div style={styles.detailLabel}>
+      <div
+        style={
+          styles.detailText
+        }
+      >
+        <div
+          style={
+            styles.detailLabel
+          }
+        >
           {label}
         </div>
 
-        <div style={styles.detailValue}>
+        <div
+          style={
+            styles.detailValue
+          }
+        >
           {value || "-"}
         </div>
       </div>
@@ -303,21 +316,17 @@ export default function PorterDetail({
   ] =
     useState(false);
 
-  const staffDisplay =
-    staffNo
-      ? `(${staffNo})${
-          staffName
-            ? ` ${staffName}`
-            : ""
-        }`
-      : "-";
-
   useEffect(() => {
-    let isDisposed = false;
+    let isDisposed =
+      false;
 
     async function checkCurrentAssignment(): Promise<void> {
-      if (!staffNo.trim()) {
-        if (!isDisposed) {
+      if (
+        !staffNo.trim()
+      ) {
+        if (
+          !isDisposed
+        ) {
           setActiveAssignment(
             null,
           );
@@ -336,19 +345,24 @@ export default function PorterDetail({
             staffNo,
           );
 
-        if (isDisposed) {
+        if (
+          isDisposed
+        ) {
           return;
         }
 
-        if (assignment) {
+        if (
+          assignment
+        ) {
           setActiveAssignment(
             assignment,
           );
 
+          // =========================
+          // ไม่ส่ง userid ใน URL
+          // =========================
           router.replace(
-            `/mobile-porter/current?userid=${encodeURIComponent(
-              staffNo,
-            )}`,
+            "/mobile-porter/current",
           );
 
           return;
@@ -367,7 +381,9 @@ export default function PorterDetail({
           error,
         );
 
-        if (!isDisposed) {
+        if (
+          !isDisposed
+        ) {
           setActiveAssignment(
             null,
           );
@@ -382,7 +398,8 @@ export default function PorterDetail({
     void checkCurrentAssignment();
 
     return () => {
-      isDisposed = true;
+      isDisposed =
+        true;
     };
   }, [
     router,
@@ -390,7 +407,9 @@ export default function PorterDetail({
   ]);
 
   const isThisJobActive =
-    activeAssignment?.job.reqNo
+    activeAssignment
+      ?.job
+      .reqNo
     === job.reqNo;
 
   const hasOtherActiveJob =
@@ -399,45 +418,55 @@ export default function PorterDetail({
     )
     && !isThisJobActive;
 
+  // =========================
+  // กลับหน้าหลัก
+  // ไม่ส่ง userid ใน URL
+  // =========================
   function handleBack(): void {
-    const query =
-      new URLSearchParams();
-
-    if (staffNo) {
-      query.set(
-        "userid",
-        staffNo,
-      );
-    }
-
     router.push(
-      `/mobile-porter?${query.toString()}`,
+      "/mobile-porter",
     );
   }
 
+  // =========================
+  // ไปหน้างานปัจจุบัน
+  // ไม่ส่ง userid ใน URL
+  // =========================
   function goToCurrentJob(): void {
     router.replace(
-      `/mobile-porter/current?userid=${encodeURIComponent(
-        staffNo,
-      )}`,
+      "/mobile-porter/current",
     );
   }
 
   async function handleAccept(): Promise<void> {
-    if (isSubmitting) {
+    if (
+      isSubmitting
+    ) {
       return;
     }
 
-    if (!staffNo.trim()) {
+    if (
+      !staffNo.trim()
+    ) {
       await Swal.fire({
-        position: "top-end",
-        toast: true,
-        icon: "error",
+        position:
+          "top-end",
+
+        toast:
+          true,
+
+        icon:
+          "error",
+
         title:
           "ไม่พบรหัสพนักงาน",
+
         showConfirmButton:
           false,
-        timer: 1800,
+
+        timer:
+          1800,
+
         timerProgressBar:
           true,
       });
@@ -450,21 +479,32 @@ export default function PorterDetail({
         true,
       );
 
+      // =========================
+      // รับงานผ่าน API
+      // ใช้ POST
+      // =========================
       const result =
         await acceptPorterJob({
           staffNo,
+
           reqNo:
             job.reqNo,
         });
 
-      if (!result.success) {
+      if (
+        !result.success
+      ) {
+        // =========================
+        // งานถูกคนอื่นรับไปแล้ว
+        // หรืองานถูกปิดแล้ว
+        // =========================
         if (
           result.code
-          === "ALREADY_ASSIGNED"
+            === "ALREADY_ASSIGNED"
           || result.code
-          === "ALREADY_FINISHED"
+            === "ALREADY_FINISHED"
           || result.code
-          === "NOT_ACTIVE"
+            === "NOT_ACTIVE"
         ) {
           await Swal.fire({
             position:
@@ -478,14 +518,17 @@ export default function PorterDetail({
 
             title:
               result.code
-              === "ALREADY_FINISHED"
+                === "ALREADY_FINISHED"
                 ? "งานนี้เสร็จสิ้นแล้ว"
                 : "งานนี้มีผู้รับแล้ว",
 
             text:
               result.code
-              === "ALREADY_FINISHED"
-                ? "รายการนี้ถูกปิดงานแล้ว ไม่สามารถรับซ้ำได้"
+                === "ALREADY_FINISHED"
+                ? (
+                  "รายการนี้ถูกปิดงานแล้ว "
+                  + "ไม่สามารถรับซ้ำได้"
+                )
                 : (
                   "มีพนักงานคนอื่นรับงานนี้ไปก่อนแล้ว "
                   + "กรุณาเลือกรายการงานอื่น"
@@ -501,21 +544,11 @@ export default function PorterDetail({
               true,
           });
 
-          const query =
-            new URLSearchParams();
-
-          query.set(
-            "userid",
-            staffNo,
-          );
-
-          query.set(
-            "view",
-            "active",
-          );
-
+          // =========================
+          // ไม่ส่ง userid
+          // =========================
           router.replace(
-            `/mobile-porter?${query.toString()}`,
+            "/mobile-porter",
           );
 
           router.refresh();
@@ -523,9 +556,12 @@ export default function PorterDetail({
           return;
         }
 
+        // =========================
+        // พนักงานคนนี้มีงานอยู่แล้ว
+        // =========================
         if (
           result.code
-          === "STAFF_HAS_ACTIVE_JOB"
+            === "STAFF_HAS_ACTIVE_JOB"
           && result.assignment
         ) {
           setActiveAssignment(
@@ -543,8 +579,9 @@ export default function PorterDetail({
               "warning",
 
             title:
-              `มีงาน ${result.assignment.job.reqNo} `
-              + "กำลังดำเนินการอยู่",
+              `มีงาน ${
+                result.assignment.job.reqNo
+              } กำลังดำเนินการอยู่`,
 
             showConfirmButton:
               false,
@@ -664,7 +701,9 @@ export default function PorterDetail({
   let acceptButtonText =
     "รับงานนี้";
 
-  if (!isReady) {
+  if (
+    !isReady
+  ) {
     acceptButtonText =
       "กำลังตรวจสอบ...";
   } else if (
@@ -685,71 +724,30 @@ export default function PorterDetail({
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
-          <div style={styles.headerTop}>
-            <button
-              type="button"
-              style={
-                styles.topBackButton
-              }
-              onClick={
-                handleBack
-              }
-              aria-label="ย้อนกลับ"
-              title="ย้อนกลับ"
-            >
-              <ArrowLeftIcon
-                size={25}
-                color="#ffffff"
-              />
-            </button>
-
-            <div
-              style={
-                styles.headerTitleBlock
-              }
-            >
-              <div style={styles.title}>
-                รายละเอียดงาน
-              </div>
-
-              <div style={styles.subtitle}>
-                ระบบรับงานพนักงานเปล
-              </div>
-            </div>
-
-            <div
-              style={
-                styles.headerDecoration
-              }
-            >
-              <AmbulanceIcon
-                size={39}
-                color="#ffffff"
-              />
-            </div>
-          </div>
-
-          <div
-            style={styles.userBox}
-            title={staffDisplay}
-          >
-            <UserIcon
-              size={19}
-              color="#ffffff"
-            />
-
-            <span
-              style={
-                styles.userText
-              }
-            >
-              {staffDisplay}
-            </span>
-          </div>
-        </header>
+    <main
+      style={
+        styles.page
+      }
+    >
+      <div
+        style={
+          styles.container
+        }
+      >
+        {/*
+          Header กลาง
+          หน้านี้ไม่มี showLogout
+        */}
+        <PorterHeader
+          staffNo={
+            staffNo
+          }
+          staffName={
+            staffName
+          }
+          title="ระบบรับงานพนักงานเปล"
+          subtitle="รายละเอียดงาน"
+        />
 
         {hasOtherActiveJob && (
           <section
@@ -838,21 +836,26 @@ export default function PorterDetail({
                   styles.reqValue
                 }
               >
-                {job.reqNo}
+                {
+                  job.reqNo
+                }
               </div>
             </div>
 
             <span
               style={{
                 ...styles.urgencyBadge,
+
                 ...getUrgencyStyle(
                   job.fastTrack,
                 ),
               }}
             >
-              {getUrgencyIcon(
-                job.fastTrack,
-              )}
+              {
+                getUrgencyIcon(
+                  job.fastTrack,
+                )
+              }
 
               {
                 job.fastTrackText
@@ -1049,20 +1052,6 @@ export default function PorterDetail({
             />
 
             <DetailItem
-              label="หมายเหตุ"
-              value={
-                job.remark
-              }
-              fullWidth
-              icon={
-                <NoteIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
               label="รายละเอียด"
               value={
                 job.detail
@@ -1070,6 +1059,20 @@ export default function PorterDetail({
               fullWidth
               icon={
                 <DetailDescriptionIcon
+                  size={22}
+                  color="#1774c8"
+                />
+              }
+            />
+            
+            <DetailItem
+              label="หมายเหตุ"
+              value={
+                job.remark
+              }
+              fullWidth
+              icon={
+                <NoteIcon
                   size={22}
                   color="#1774c8"
                 />
@@ -1163,7 +1166,9 @@ export default function PorterDetail({
               color="#ffffff"
             />
 
-            {acceptButtonText}
+            {
+              acceptButtonText
+            }
           </button>
         </div>
       </div>
@@ -1176,179 +1181,34 @@ const styles: Record<
   CSSProperties
 > = {
   page: {
-    minHeight: "100vh",
-    padding: "10px",
+    minHeight:
+      "100vh",
+
+    padding:
+      "10px",
+
     background:
       "#eef3f8",
+
     fontFamily:
       'Tahoma, "Noto Sans Thai", Arial, sans-serif',
   },
 
   container: {
-    width: "100%",
-    maxWidth: "430px",
-    margin: "0 auto",
-  },
-
-  header: {
-    marginBottom: "11px",
-    padding: "15px",
-    borderRadius: "18px",
-    color: "#ffffff",
-    background:
-      "linear-gradient(135deg, #0d5ca6, #1b77c8)",
-    boxShadow:
-      "0 8px 22px rgba(13,92,166,0.18)",
-  },
-
-  headerTop: {
-    display: "grid",
-    gridTemplateColumns:
-      "42px minmax(0, 1fr) 46px",
-    alignItems:
-      "center",
-    gap:
-      "10px",
-  },
-
-  topBackButton: {
-    width:
-      "42px",
-
-    height:
-      "42px",
-
-    padding:
-      0,
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    border:
-      "1px solid rgba(255,255,255,0.38)",
-
-    borderRadius:
-      "12px",
-
-    color:
-      "#ffffff",
-
-    background:
-      "rgba(255,255,255,0.14)",
-
-    cursor:
-      "pointer",
-  },
-
-  headerTitleBlock: {
-    minWidth:
-      0,
-  },
-
-  title: {
-    fontSize:
-      "20px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.3,
-  },
-
-  subtitle: {
-    marginTop:
-      "3px",
-
-    fontSize:
-      "11px",
-
-    opacity:
-      0.88,
-  },
-
-  headerDecoration: {
-    width:
-      "46px",
-
-    height:
-      "46px",
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    borderRadius:
-      "14px",
-
-    background:
-      "rgba(255,255,255,0.10)",
-
-    opacity:
-      0.9,
-  },
-
-  userBox: {
     width:
       "100%",
 
-    marginTop:
-      "12px",
+    maxWidth:
+      "430px",
 
-    padding:
-      "9px 11px",
-
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "8px",
-
-    overflow:
-      "hidden",
-
-    border:
-      "1px solid rgba(255,255,255,0.14)",
-
-    borderRadius:
-      "11px",
-
-    background:
-      "rgba(255,255,255,0.18)",
-
-    fontSize:
-      "13px",
-
-    fontWeight:
-      700,
-
-    boxSizing:
-      "border-box",
-  },
-
-  userText: {
-    minWidth:
-      0,
-
-    overflow:
-      "hidden",
-
-    whiteSpace:
-      "nowrap",
-
-    textOverflow:
-      "ellipsis",
+    margin:
+      "0 auto",
   },
 
   warningBox: {
+    marginTop:
+      "10px",
+
     marginBottom:
       "10px",
 
@@ -1460,6 +1320,9 @@ const styles: Record<
   },
 
   routeCard: {
+    marginTop:
+      "10px",
+
     marginBottom:
       "10px",
 

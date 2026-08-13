@@ -45,8 +45,7 @@ async function readJson(
   const contentType =
     response.headers.get(
       "content-type",
-    )
-    ?? "";
+    ) ?? "";
 
   if (
     !contentType.includes(
@@ -80,27 +79,46 @@ function normalizeErrorCode(
   }
 }
 
+/**
+ * ตรวจงานปัจจุบันของพนักงาน
+ *
+ * POST /api/porter/current-assignment
+ */
 export async function getCurrentPorterAssignment(
   staffNo: string,
 ): Promise<PorterLiveAssignment | null> {
-  const query =
-    new URLSearchParams();
+  const normalizedStaffNo =
+    String(
+      staffNo ?? "",
+    ).trim();
 
-  query.set(
-    "staffNo",
-    staffNo.trim(),
-  );
+  if (!normalizedStaffNo) {
+    return null;
+  }
 
   const response =
     await fetch(
-      `/api/porter/assignment?${query.toString()}`,
+      "/api/porter/current-assignment",
       {
-        method: "GET",
-        cache: "no-store",
+        method:
+          "POST",
+
+        cache:
+          "no-store",
+
         headers: {
+          "Content-Type":
+            "application/json",
+
           "Cache-Control":
             "no-cache",
         },
+
+        body:
+          JSON.stringify({
+            staffNo:
+              normalizedStaffNo,
+          }),
       },
     );
 
@@ -112,7 +130,7 @@ export async function getCurrentPorterAssignment(
   if (!response.ok) {
     throw new Error(
       body.message
-      ?? "โหลดงานปัจจุบันไม่สำเร็จ",
+        ?? "โหลดงานปัจจุบันไม่สำเร็จ",
     );
   }
 
@@ -120,6 +138,11 @@ export async function getCurrentPorterAssignment(
     ?? null;
 }
 
+/**
+ * รับงาน
+ *
+ * POST /api/porter/assignment/accept
+ */
 export async function acceptPorterJob(
   input: {
     reqNo: string;
@@ -129,14 +152,22 @@ export async function acceptPorterJob(
   try {
     const response =
       await fetch(
-        "/api/porter/assignment",
+        "/api/porter/assignment/accept",
         {
-          method: "POST",
-          cache: "no-store",
+          method:
+            "POST",
+
+          cache:
+            "no-store",
+
           headers: {
             "Content-Type":
               "application/json",
+
+            "Cache-Control":
+              "no-cache",
           },
+
           body:
             JSON.stringify(
               input,
@@ -154,7 +185,9 @@ export async function acceptPorterJob(
       && body.success
     ) {
       return {
-        success: true,
+        success:
+          true,
+
         assignment:
           body.assignment
           ?? undefined,
@@ -162,14 +195,18 @@ export async function acceptPorterJob(
     }
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         normalizeErrorCode(
           body.code,
         ),
+
       message:
         body.message
         ?? "รับงานไม่สำเร็จ",
+
       assignment:
         body.assignment
         ?? undefined,
@@ -181,15 +218,23 @@ export async function acceptPorterJob(
     );
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         "REQUEST_FAILED",
+
       message:
         "ไม่สามารถติดต่อระบบรับงานได้",
     };
   }
 }
 
+/**
+ * ยกเลิกงาน
+ *
+ * POST /api/porter/assignment/cancel
+ */
 export async function cancelPorterJob(
   input: {
     reqNo: string;
@@ -199,14 +244,22 @@ export async function cancelPorterJob(
   try {
     const response =
       await fetch(
-        "/api/porter/assignment",
+        "/api/porter/assignment/cancel",
         {
-          method: "DELETE",
-          cache: "no-store",
+          method:
+            "POST",
+
+          cache:
+            "no-store",
+
           headers: {
             "Content-Type":
               "application/json",
+
+            "Cache-Control":
+              "no-cache",
           },
+
           body:
             JSON.stringify(
               input,
@@ -224,19 +277,27 @@ export async function cancelPorterJob(
       && body.success
     ) {
       return {
-        success: true,
+        success:
+          true,
       };
     }
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         normalizeErrorCode(
           body.code,
         ),
+
       message:
         body.message
         ?? "ยกเลิกงานไม่สำเร็จ",
+
+      assignment:
+        body.assignment
+        ?? undefined,
     };
   } catch (error) {
     console.error(
@@ -245,15 +306,23 @@ export async function cancelPorterJob(
     );
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         "REQUEST_FAILED",
+
       message:
         "ไม่สามารถติดต่อระบบรับงานได้",
     };
   }
 }
 
+/**
+ * เสร็จสิ้นงาน
+ *
+ * POST /api/porter/assignment/finish
+ */
 export async function finishPorterJob(
   input: {
     reqNo: string;
@@ -263,14 +332,22 @@ export async function finishPorterJob(
   try {
     const response =
       await fetch(
-        "/api/porter/assignment",
+        "/api/porter/assignment/finish",
         {
-          method: "PATCH",
-          cache: "no-store",
+          method:
+            "POST",
+
+          cache:
+            "no-store",
+
           headers: {
             "Content-Type":
               "application/json",
+
+            "Cache-Control":
+              "no-cache",
           },
+
           body:
             JSON.stringify(
               input,
@@ -288,19 +365,27 @@ export async function finishPorterJob(
       && body.success
     ) {
       return {
-        success: true,
+        success:
+          true,
       };
     }
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         normalizeErrorCode(
           body.code,
         ),
+
       message:
         body.message
         ?? "บันทึกเสร็จสิ้นงานไม่สำเร็จ",
+
+      assignment:
+        body.assignment
+        ?? undefined,
     };
   } catch (error) {
     console.error(
@@ -309,9 +394,12 @@ export async function finishPorterJob(
     );
 
     return {
-      success: false,
+      success:
+        false,
+
       code:
         "REQUEST_FAILED",
+
       message:
         "ไม่สามารถติดต่อระบบรับงานได้",
     };

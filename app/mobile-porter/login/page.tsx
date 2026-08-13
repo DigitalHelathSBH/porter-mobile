@@ -1,28 +1,64 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useState,
+} from "react";
+
+import {
+  useRouter,
+} from "next/navigation";
+
 import Swal from "sweetalert2";
 
+type LoginResponse = {
+  success?: boolean;
+  message?: string;
+  staffNo?: string;
+  staffName?: string;
+};
+
 export default function PorterLoginPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const [empId, setEmpId] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [
+    empId,
+    setEmpId,
+  ] =
+    useState("");
 
-  async function handleLogin() {
-    const normalizedEmpId = empId.trim();
-    const normalizedPassword = password.trim();
+  const [
+    password,
+    setPassword,
+  ] =
+    useState("");
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
+    useState(false);
+
+  async function handleLogin(): Promise<void> {
+    const normalizedEmpId =
+      empId.trim();
+
+    const normalizedPassword =
+      password.trim();
 
     // =========================
     // ตรวจรหัสเจ้าหน้าที่
     // =========================
     if (!normalizedEmpId) {
       await Swal.fire({
-        icon: "warning",
-        title: "กรุณากรอกรหัสเจ้าหน้าที่",
-        confirmButtonText: "ตกลง",
+        icon:
+          "warning",
+
+        title:
+          "กรุณากรอกรหัสเจ้าหน้าที่",
+
+        confirmButtonText:
+          "ตกลง",
       });
 
       return;
@@ -33,98 +69,216 @@ export default function PorterLoginPage() {
     // =========================
     if (!normalizedPassword) {
       await Swal.fire({
-        icon: "warning",
-        title: "กรุณากรอกรหัสผ่าน",
-        confirmButtonText: "ตกลง",
+        icon:
+          "warning",
+
+        title:
+          "กรุณากรอกรหัสผ่าน",
+
+        confirmButtonText:
+          "ตกลง",
       });
 
       return;
     }
 
     try {
-      setIsLoading(true);
-
-      // =========================
-      // ส่งข้อมูลไป Login API
-      // =========================
-      const response = await fetch(
-        "/api/mobile-porter/login",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            empId: normalizedEmpId,
-            password: normalizedPassword,
-          }),
-        }
+      setIsLoading(
+        true,
       );
 
-      const result = await response.json();
+      // =========================
+      // Login API
+      // ใช้ POST เท่านั้น
+      // =========================
+      const response =
+        await fetch(
+          "/api/mobile-porter/login",
+          {
+            method:
+              "POST",
+
+            cache:
+              "no-store",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              "Cache-Control":
+                "no-cache",
+            },
+
+            body:
+              JSON.stringify({
+                empId:
+                  normalizedEmpId,
+
+                password:
+                  normalizedPassword,
+              }),
+          },
+        );
+
+      const contentType =
+        response.headers.get(
+          "content-type",
+        ) ?? "";
+
+      if (
+        !contentType.includes(
+          "application/json",
+        )
+      ) {
+        throw new Error(
+          `API ตอบกลับไม่ถูกต้อง (${response.status})`,
+        );
+      }
+
+      const result =
+        (
+          await response.json()
+        ) as LoginResponse;
 
       // =========================
       // Login ไม่ผ่าน
       // =========================
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok
+        || !result.success
+      ) {
         await Swal.fire({
-          icon: "error",
+          icon:
+            "error",
+
           title:
-            result.message ??
-            "เข้าสู่ระบบไม่สำเร็จ",
-          confirmButtonText: "ตกลง",
+            result.message
+            ?? "เข้าสู่ระบบไม่สำเร็จ",
+
+          confirmButtonText:
+            "ตกลง",
         });
 
         return;
       }
 
       // =========================
-      // Login สำเร็จ
+      // Login ผ่าน
+      // =========================
+      const staffNo =
+        String(
+          result.staffNo
+          ?? normalizedEmpId,
+        ).trim();
+
+      const staffName =
+        String(
+          result.staffName
+          ?? "",
+        ).trim();
+
+      if (!staffNo) {
+        await Swal.fire({
+          icon:
+            "error",
+
+          title:
+            "ไม่พบรหัสพนักงานหลังเข้าสู่ระบบ",
+
+          confirmButtonText:
+            "ตกลง",
+        });
+
+        return;
+      }
+
+      // =========================
+      // เก็บข้อมูลผู้ใช้ใน session
+      // ไม่ส่ง userid ใน URL แล้ว
+      // =========================
+      window.sessionStorage.setItem(
+        "porterStaffNo",
+        staffNo,
+      );
+
+      window.sessionStorage.setItem(
+        "porterStaffName",
+        staffName,
+      );
+
+      // =========================
+      // ไปหน้า Dashboard
+      // ไม่มี ?userid=...
       // =========================
       router.replace(
-        `/mobile-porter?userid=${encodeURIComponent(
-            result.staffNo
-        )}`
-        );
+        "/mobile-porter",
+      );
+
+      router.refresh();
     } catch (error) {
       console.error(
         "Login error:",
-        error
+        error,
       );
 
       await Swal.fire({
-        icon: "error",
-        title: "ไม่สามารถติดต่อระบบได้",
-        confirmButtonText: "ตกลง",
+        icon:
+          "error",
+
+        title:
+          "ไม่สามารถติดต่อระบบได้",
+
+        confirmButtonText:
+          "ตกลง",
       });
     } finally {
-      setIsLoading(false);
+      setIsLoading(
+        false,
+      );
     }
   }
 
   return (
     <main
       style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "20px",
-        background: "#eef3f8",
+        minHeight:
+          "100vh",
+
+        display:
+          "grid",
+
+        placeItems:
+          "center",
+
+        padding:
+          "20px",
+
+        background:
+          "#eef3f8",
+
         fontFamily:
           'Tahoma, "Noto Sans Thai", Arial, sans-serif',
       }}
     >
       <div
         style={{
-          width: "min(390px, 100%)",
-          padding: "28px 24px",
-          borderRadius: "22px",
-          background: "#ffffff",
+          width:
+            "min(390px, 100%)",
+
+          padding:
+            "28px 24px",
+
+          borderRadius:
+            "22px",
+
+          background:
+            "#ffffff",
+
           boxShadow:
             "0 10px 30px rgba(0,0,0,0.08)",
-          boxSizing: "border-box",
+
+          boxSizing:
+            "border-box",
         }}
       >
         {/* =====================
@@ -132,20 +286,38 @@ export default function PorterLoginPage() {
         ===================== */}
         <div
           style={{
-            textAlign: "center",
-            marginBottom: "24px",
+            textAlign:
+              "center",
+
+            marginBottom:
+              "24px",
           }}
         >
           <div
             style={{
-              width: "64px",
-              height: "64px",
-              margin: "0 auto 14px",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: "18px",
-              background: "#e8f3fd",
-              fontSize: "30px",
+              width:
+                "64px",
+
+              height:
+                "64px",
+
+              margin:
+                "0 auto 14px",
+
+              display:
+                "grid",
+
+              placeItems:
+                "center",
+
+              borderRadius:
+                "18px",
+
+              background:
+                "#e8f3fd",
+
+              fontSize:
+                "30px",
             }}
           >
             🚑
@@ -153,9 +325,14 @@ export default function PorterLoginPage() {
 
           <div
             style={{
-              color: "#0d5ca6",
-              fontSize: "22px",
-              fontWeight: 700,
+              color:
+                "#0d5ca6",
+
+              fontSize:
+                "22px",
+
+              fontWeight:
+                700,
             }}
           >
             ระบบรับงานพนักงานเปล
@@ -163,9 +340,14 @@ export default function PorterLoginPage() {
 
           <div
             style={{
-              marginTop: "7px",
-              color: "#718498",
-              fontSize: "13px",
+              marginTop:
+                "7px",
+
+              color:
+                "#718498",
+
+              fontSize:
+                "13px",
             }}
           >
             กรุณากรอกรหัสเจ้าหน้าที่และรหัสผ่าน
@@ -178,11 +360,20 @@ export default function PorterLoginPage() {
         <label
           htmlFor="empId"
           style={{
-            display: "block",
-            marginBottom: "7px",
-            color: "#526679",
-            fontSize: "13px",
-            fontWeight: 700,
+            display:
+              "block",
+
+            marginBottom:
+              "7px",
+
+            color:
+              "#526679",
+
+            fontSize:
+              "13px",
+
+            fontWeight:
+              700,
           }}
         >
           รหัสเจ้าหน้าที่
@@ -192,24 +383,47 @@ export default function PorterLoginPage() {
           id="empId"
           type="text"
           value={empId}
-          onChange={(event) => {
-            setEmpId(event.target.value);
+          onChange={(
+            event,
+          ) => {
+            setEmpId(
+              event.target.value,
+            );
           }}
           placeholder="เช่น L0281"
           autoFocus
           autoComplete="username"
           disabled={isLoading}
           style={{
-            width: "100%",
-            height: "50px",
-            padding: "0 14px",
-            border: "1px solid #cbd8e5",
-            borderRadius: "12px",
-            outline: "none",
-            color: "#17324d",
-            background: "#ffffff",
-            fontSize: "16px",
-            boxSizing: "border-box",
+            width:
+              "100%",
+
+            height:
+              "50px",
+
+            padding:
+              "0 14px",
+
+            border:
+              "1px solid #cbd8e5",
+
+            borderRadius:
+              "12px",
+
+            outline:
+              "none",
+
+            color:
+              "#17324d",
+
+            background:
+              "#ffffff",
+
+            fontSize:
+              "16px",
+
+            boxSizing:
+              "border-box",
           }}
         />
 
@@ -219,12 +433,23 @@ export default function PorterLoginPage() {
         <label
           htmlFor="password"
           style={{
-            display: "block",
-            marginTop: "16px",
-            marginBottom: "7px",
-            color: "#526679",
-            fontSize: "13px",
-            fontWeight: 700,
+            display:
+              "block",
+
+            marginTop:
+              "16px",
+
+            marginBottom:
+              "7px",
+
+            color:
+              "#526679",
+
+            fontSize:
+              "13px",
+
+            fontWeight:
+              700,
           }}
         >
           รหัสผ่าน
@@ -234,11 +459,20 @@ export default function PorterLoginPage() {
           id="password"
           type="password"
           value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
+          onChange={(
+            event,
+          ) => {
+            setPassword(
+              event.target.value,
+            );
           }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
+          onKeyDown={(
+            event,
+          ) => {
+            if (
+              event.key
+              === "Enter"
+            ) {
               void handleLogin();
             }
           }}
@@ -246,16 +480,35 @@ export default function PorterLoginPage() {
           autoComplete="current-password"
           disabled={isLoading}
           style={{
-            width: "100%",
-            height: "50px",
-            padding: "0 14px",
-            border: "1px solid #cbd8e5",
-            borderRadius: "12px",
-            outline: "none",
-            color: "#17324d",
-            background: "#ffffff",
-            fontSize: "16px",
-            boxSizing: "border-box",
+            width:
+              "100%",
+
+            height:
+              "50px",
+
+            padding:
+              "0 14px",
+
+            border:
+              "1px solid #cbd8e5",
+
+            borderRadius:
+              "12px",
+
+            outline:
+              "none",
+
+            color:
+              "#17324d",
+
+            background:
+              "#ffffff",
+
+            fontSize:
+              "16px",
+
+            boxSizing:
+              "border-box",
           }}
         />
 
@@ -269,24 +522,49 @@ export default function PorterLoginPage() {
             void handleLogin();
           }}
           style={{
-            width: "100%",
-            minHeight: "50px",
-            marginTop: "20px",
-            border: 0,
-            borderRadius: "12px",
-            color: "#ffffff",
-            background: "#0d6fd1",
-            fontSize: "15px",
-            fontWeight: 700,
-            cursor: isLoading
-              ? "not-allowed"
-              : "pointer",
-            opacity: isLoading ? 0.65 : 1,
+            width:
+              "100%",
+
+            minHeight:
+              "50px",
+
+            marginTop:
+              "20px",
+
+            border:
+              0,
+
+            borderRadius:
+              "12px",
+
+            color:
+              "#ffffff",
+
+            background:
+              "#0d6fd1",
+
+            fontSize:
+              "15px",
+
+            fontWeight:
+              700,
+
+            cursor:
+              isLoading
+                ? "not-allowed"
+                : "pointer",
+
+            opacity:
+              isLoading
+                ? 0.65
+                : 1,
           }}
         >
-          {isLoading
-            ? "กำลังตรวจสอบ..."
-            : "เข้าสู่ระบบ"}
+          {
+            isLoading
+              ? "กำลังตรวจสอบ..."
+              : "เข้าสู่ระบบ"
+          }
         </button>
       </div>
     </main>

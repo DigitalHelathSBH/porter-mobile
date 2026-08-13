@@ -1,12 +1,16 @@
-import PorterDashboard from "@/components/porter-dashboard";
+import {
+  cookies,
+} from "next/headers";
 
 import {
-  getFinishedJobs,
-  getStaffDisplayName,
-  getWaitingJobs,
-} from "@/lib/porter";
+  redirect,
+} from "next/navigation";
 
-export const dynamic = "force-dynamic";
+import PorterDashboardLoader
+  from "@/components/porter-dashboard-loader";
+
+export const dynamic =
+  "force-dynamic";
 
 type DashboardView =
   | "active"
@@ -14,7 +18,6 @@ type DashboardView =
 
 type PageProps = {
   searchParams: Promise<{
-    userid?: string;
     view?: string;
   }>;
 };
@@ -22,31 +25,50 @@ type PageProps = {
 export default async function MobilePorterPage({
   searchParams,
 }: PageProps) {
-  const params = await searchParams;
+  // =========================
+  // อ่าน Login session
+  // จาก HttpOnly Cookie
+  // =========================
+  const cookieStore =
+    await cookies();
 
-  const staffNo = String(
-    params.userid ?? "",
-  ).trim();
+  const staffNo =
+    String(
+      cookieStore.get(
+        "porterStaffNo",
+      )?.value ?? "",
+    ).trim();
+
+  // =========================
+  // ไม่มี Login session
+  // กลับหน้า Login
+  // =========================
+  if (!staffNo) {
+    redirect(
+      "/mobile-porter/login",
+    );
+  }
+
+  // =========================
+  // อ่าน View ของหน้า
+  // =========================
+  const params =
+    await searchParams;
 
   const viewMode: DashboardView =
     params.view === "finished"
       ? "finished"
       : "active";
 
-  const [staffName, jobs] =
-    await Promise.all([
-      getStaffDisplayName(staffNo),
-
-      viewMode === "finished"
-        ? getFinishedJobs(staffNo)
-        : getWaitingJobs(),
-    ]);
-
+  // =========================
+  // ไม่ Query Database
+  // จาก page.tsx แล้ว
+  //
+  // PorterDashboardLoader
+  // จะโหลดข้อมูลผ่าน POST API
+  // =========================
   return (
-    <PorterDashboard
-      staffNo={staffNo}
-      staffName={staffName}
-      jobs={jobs}
+    <PorterDashboardLoader
       viewMode={viewMode}
     />
   );

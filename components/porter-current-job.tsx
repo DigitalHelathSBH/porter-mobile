@@ -10,8 +10,9 @@ import {
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 
+import PorterHeader from "@/components/porter-header";
+
 import {
-  AmbulanceIcon,
   BedIcon,
   CalendarIcon,
   CheckIcon,
@@ -278,18 +279,15 @@ function formatAssignedAt(
         matched[3],
       );
 
-    if (
-      year < 2400
-    ) {
+    if (year < 2400) {
       year += 543;
     }
 
     const hour =
-      matched[4]
-        .padStart(
-          2,
-          "0",
-        );
+      matched[4].padStart(
+        2,
+        "0",
+      );
 
     const minute =
       matched[5];
@@ -320,6 +318,7 @@ function DetailItem({
     <div
       style={{
         ...styles.detailItem,
+
         ...(fullWidth
           ? styles.detailItemFull
           : {}),
@@ -390,6 +389,38 @@ export default function PorterCurrentJob({
   ] =
     useState(false);
 
+  // ==========================================
+  // กลับ Dashboard
+  //
+  // ไม่มี userid ใน URL แล้ว
+  //
+  // active:
+  // /mobile-porter
+  //
+  // finished:
+  // /mobile-porter?view=finished
+  // ==========================================
+  function goToDashboard(
+    view:
+      | "active"
+      | "finished"
+      = "active",
+  ): void {
+    if (
+      view === "finished"
+    ) {
+      router.replace(
+        "/mobile-porter?view=finished",
+      );
+
+      return;
+    }
+
+    router.replace(
+      "/mobile-porter",
+    );
+  }
+
   useEffect(() => {
     let isDisposed =
       false;
@@ -406,6 +437,10 @@ export default function PorterCurrentJob({
       }
 
       try {
+        // ==================================
+        // ตรวจงานปัจจุบัน
+        // ตอนนี้ใช้ POST แล้ว
+        // ==================================
         const currentAssignment =
           await getCurrentPorterAssignment(
             staffNo,
@@ -484,34 +519,6 @@ export default function PorterCurrentJob({
     staffNo,
   ]);
 
-  function goToDashboard(
-    view:
-      | "active"
-      | "finished"
-      = "active",
-  ): void {
-    const query =
-      new URLSearchParams();
-
-    if (
-      staffNo
-    ) {
-      query.set(
-        "userid",
-        staffNo,
-      );
-    }
-
-    query.set(
-      "view",
-      view,
-    );
-
-    router.replace(
-      `/mobile-porter?${query.toString()}`,
-    );
-  }
-
   async function handleCancel(): Promise<void> {
     if (
       !assignment
@@ -532,6 +539,7 @@ export default function PorterCurrentJob({
       const result =
         await cancelPorterJob({
           staffNo,
+
           reqNo:
             cancelledReqNo,
         });
@@ -596,6 +604,10 @@ export default function PorterCurrentJob({
           true,
       });
 
+      // ==================================
+      // กลับหน้า Dashboard
+      // ไม่มี userid ใน URL
+      // ==================================
       goToDashboard(
         "active",
       );
@@ -654,6 +666,7 @@ export default function PorterCurrentJob({
       const result =
         await finishPorterJob({
           staffNo,
+
           reqNo:
             finishedReqNo,
         });
@@ -718,6 +731,10 @@ export default function PorterCurrentJob({
           true,
       });
 
+      // ==================================
+      // กลับหน้า Dashboard
+      // ไม่มี userid ใน URL
+      // ==================================
       goToDashboard(
         "active",
       );
@@ -756,6 +773,9 @@ export default function PorterCurrentJob({
     }
   }
 
+  // ==========================================
+  // Loading
+  // ==========================================
   if (
     !isReady
   ) {
@@ -841,13 +861,6 @@ export default function PorterCurrentJob({
   const job =
     assignment.job;
 
-  const staffDisplay =
-    `(${assignment.staffNo})${
-      assignment.staffName
-        ? ` ${assignment.staffName}`
-        : ""
-    }`;
-
   return (
     <main
       style={
@@ -859,73 +872,26 @@ export default function PorterCurrentJob({
           styles.container
         }
       >
-        <header
-          style={
-            styles.header
+        {/*
+          =================================
+          HEADER กลาง
+          ไม่มี showLogout
+          =================================
+        */}
+        <PorterHeader
+          staffNo={
+            assignment.staffNo
           }
-        >
-          <div
-            style={
-              styles.headerTop
-            }
-          >
-            <div
-              style={
-                styles.headerIcon
-              }
-            >
-              <AmbulanceIcon
-                size={31}
-                color="#ffffff"
-              />
-            </div>
+          staffName={
+            assignment.staffName
+          }
+          title="ระบบรับงานพนักงานเปล"
+          subtitle="งานที่กำลังดำเนินการ"
+        />
 
-            <div
-              style={
-                styles.headerTitleArea
-              }
-            >
-              <div
-                style={
-                  styles.title
-                }
-              >
-                งานที่กำลังดำเนินการ
-              </div>
-
-              <div
-                style={
-                  styles.subtitle
-                }
-              >
-                งานที่รับแล้ว
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={
-              styles.userBox
-            }
-            title={
-              staffDisplay
-            }
-          >
-            <UserIcon
-              size={19}
-              color="#ffffff"
-            />
-
-            <span
-              style={
-                styles.userText
-              }
-            >
-              {staffDisplay}
-            </span>
-          </div>
-        </header>
-
+        {/* =================================
+            รหัสงาน + เวลารับงาน
+        ================================= */}
         <section
           style={
             styles.statusCard
@@ -981,14 +947,17 @@ export default function PorterCurrentJob({
             <span
               style={{
                 ...styles.urgencyBadge,
+
                 ...getUrgencyStyle(
                   job.fastTrack,
                 ),
               }}
             >
-              {getUrgencyIcon(
-                job.fastTrack,
-              )}
+              {
+                getUrgencyIcon(
+                  job.fastTrack,
+                )
+              }
 
               {
                 job.fastTrackText
@@ -997,6 +966,9 @@ export default function PorterCurrentJob({
           </div>
         </section>
 
+        {/* =================================
+            ต้นทาง / ปลายทาง
+        ================================= */}
         <section
           style={
             styles.routeCard
@@ -1109,6 +1081,9 @@ export default function PorterCurrentJob({
           </div>
         </section>
 
+        {/* =================================
+            รายละเอียดงาน
+        ================================= */}
         <section
           style={
             styles.detailCard
@@ -1185,6 +1160,20 @@ export default function PorterCurrentJob({
             />
 
             <DetailItem
+              label="รายละเอียด"
+              value={
+                job.detail
+              }
+              fullWidth
+              icon={
+                <DetailDescriptionIcon
+                  size={22}
+                  color="#1774c8"
+                />
+              }
+            />
+            
+            <DetailItem
               label="หมายเหตุ"
               value={
                 job.remark
@@ -1199,32 +1188,19 @@ export default function PorterCurrentJob({
             />
 
             <DetailItem
-              label="รายละเอียด"
+              label="ผู้แจ้ง"
               value={
-                job.detail
+                job.createdBy
               }
               fullWidth
               icon={
-                <DetailDescriptionIcon
+                <UserIcon
                   size={22}
                   color="#1774c8"
                 />
               }
             />
 
-          <DetailItem
-            label="ผู้แจ้ง"
-            value={
-              job.createdBy
-            }
-            fullWidth
-            icon={
-              <UserIcon
-                size={22}
-                color="#1774c8"
-              />
-            }
-          />
             <DetailItem
               label="วันที่และเวลาที่แจ้งงาน"
               value={
@@ -1247,6 +1223,9 @@ export default function PorterCurrentJob({
           }
         />
 
+        {/* =================================
+            ปุ่มล่าง
+        ================================= */}
         <div
           style={
             styles.bottomBar
@@ -1434,148 +1413,6 @@ const styles: Record<
 
     margin:
       "0 auto",
-  },
-
-  header: {
-    marginBottom:
-      "10px",
-
-    padding:
-      "15px",
-
-    borderRadius:
-      "18px",
-
-    color:
-      "#ffffff",
-
-    background:
-      "linear-gradient(135deg, #0d5ca6, #1b77c8)",
-
-    boxShadow:
-      "0 8px 22px rgba(13,92,166,0.18)",
-  },
-
-  headerTop: {
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "11px",
-  },
-
-  headerIcon: {
-    width:
-      "46px",
-
-    height:
-      "46px",
-
-    flex:
-      "0 0 46px",
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    border:
-      "1px solid rgba(255,255,255,0.24)",
-
-    borderRadius:
-      "14px",
-
-    background:
-      "rgba(255,255,255,0.15)",
-  },
-
-  headerTitleArea: {
-    minWidth:
-      0,
-
-    flex:
-      1,
-  },
-
-  title: {
-    fontSize:
-      "20px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.3,
-  },
-
-  subtitle: {
-    marginTop:
-      "3px",
-
-    fontSize:
-      "11px",
-
-    opacity:
-      0.88,
-  },
-
-  userBox: {
-    width:
-      "100%",
-
-    marginTop:
-      "12px",
-
-    padding:
-      "9px 11px",
-
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "8px",
-
-    overflow:
-      "hidden",
-
-    border:
-      "1px solid rgba(255,255,255,0.14)",
-
-    borderRadius:
-      "11px",
-
-    background:
-      "rgba(255,255,255,0.18)",
-
-    fontSize:
-      "13px",
-
-    fontWeight:
-      700,
-
-    boxSizing:
-      "border-box",
-  },
-
-  userText: {
-    minWidth:
-      0,
-
-    overflow:
-      "hidden",
-
-    whiteSpace:
-      "nowrap",
-
-    textOverflow:
-      "ellipsis",
   },
 
   statusCard: {

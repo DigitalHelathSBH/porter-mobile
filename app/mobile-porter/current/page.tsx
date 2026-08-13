@@ -1,23 +1,49 @@
+import {
+  cookies,
+} from "next/headers";
+
+import {
+  redirect,
+} from "next/navigation";
+
 import PorterCurrentJob
   from "@/components/porter-current-job";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
-type PageProps = {
-  searchParams: Promise<{
-    userid?: string;
-  }>;
-};
+export default async function CurrentJobPage() {
+  // =========================
+  // ตรวจ Login Session
+  // จาก HttpOnly Cookie
+  // =========================
+  const cookieStore =
+    await cookies();
 
-export default async function CurrentJobPage({
-  searchParams,
-}: PageProps) {
-  const params = await searchParams;
+  const staffNo =
+    String(
+      cookieStore.get(
+        "porterStaffNo",
+      )?.value ?? "",
+    ).trim();
 
-  const staffNo = String(
-    params.userid ?? "",
-  ).trim();
+  // =========================
+  // ไม่มี Login Session
+  // กลับหน้า Login
+  // =========================
+  if (!staffNo) {
+    redirect(
+      "/mobile-porter/login",
+    );
+  }
 
+  // =========================
+  // แสดงหน้ากำลังทำงาน
+  //
+  // PorterCurrentJob
+  // จะโหลดงานปัจจุบันผ่าน
+  // POST /api/porter/current-assignment
+  // =========================
   return (
     <PorterCurrentJob
       staffNo={staffNo}
