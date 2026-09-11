@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -389,6 +390,15 @@ export default function PorterCurrentJob({
   ] =
     useState(false);
 
+  const knownJobReqNosRef =
+    useRef<Set<string>>(new Set());
+
+  const hasInitializedNewJobsRef =
+    useRef(false);
+
+  const isCheckingNewJobsRef =
+    useRef(false);
+
   // ==========================================
   // กลับ Dashboard
   //
@@ -518,6 +528,253 @@ export default function PorterCurrentJob({
     router,
     staffNo,
   ]);
+
+  useEffect(() => {
+  let isDisposed = false;
+
+  type DashboardJob = {
+    reqNo: string;
+    locSource?: string | null;
+    locDest?: string | null;
+  };
+
+  type DashboardResponse = {
+    success?: boolean;
+    message?: string;
+    jobs?: DashboardJob[];
+  };
+
+  function escapeHtml(value: unknown): string {
+    return String(value ?? "-")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  async function checkForNewJobs(): Promise<void> {
+    if (
+      isDisposed ||
+      isCheckingNewJobsRef.current ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+
+    isCheckingNewJobsRef.current = true;
+
+    try {
+      const response = await fetch(
+        "/api/porter/dashboard",
+        {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: JSON.stringify({
+            view: "active",
+          }),
+        },
+      );
+
+      let result: DashboardResponse;
+
+      try {
+        result =
+          (await response.json()) as DashboardResponse;
+      } catch {
+        return;
+      }
+
+      if (isDisposed) {
+        return;
+      }
+
+      if (response.status === 401) {
+        router.replace(
+          "/mobile-porter/login",
+        );
+        return;
+      }
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        return;
+      }
+
+      const jobs = Array.isArray(result.jobs)
+        ? result.jobs.filter(
+            (job) =>
+              String(
+                job.reqNo ?? "",
+              ).trim(),
+          )
+        : [];
+
+      const currentReqNos =
+        new Set(
+          jobs.map(
+            (job) =>
+              String(
+                job.reqNo,
+              ).trim(),
+          ),
+        );
+
+      /*
+       * ครั้งแรก:
+       * จำรายการงานปัจจุบันไว้ก่อน
+       * ไม่แจ้งเตือนงานที่มีอยู่ก่อนแล้ว
+       */
+      if (
+        !hasInitializedNewJobsRef.current
+      ) {
+        knownJobReqNosRef.current =
+          currentReqNos;
+
+        hasInitializedNewJobsRef.current =
+          true;
+
+        return;
+      }
+
+      /*
+       * รอบต่อไป:
+       * หา ReqNo ที่เพิ่งเข้ามาใหม่
+       */
+      const newJobs =
+        jobs.filter(
+          (job) =>
+            !knownJobReqNosRef.current.has(
+              String(
+                job.reqNo,
+              ).trim(),
+            ),
+        );
+
+      /*
+       * อัปเดตรายการล่าสุด
+       */
+      knownJobReqNosRef.current =
+        currentReqNos;
+
+      if (
+        newJobs.length === 0 ||
+        isDisposed
+      ) {
+        return;
+      }
+
+      const alertHtml =
+        newJobs
+          .map(
+            (job) => `
+              <div style="
+                text-align:left;
+                padding:8px 0;
+                border-bottom:1px solid #eeeeee;
+              ">
+                <strong>
+                  ${escapeHtml(
+                    job.reqNo,
+                  )}
+                </strong>
+                <br>
+                ${escapeHtml(
+                  job.locSource,
+                )}
+                →
+                ${escapeHtml(
+                  job.locDest,
+                )}
+              </div>
+            `,
+          )
+          .join("");
+
+      await Swal.fire({
+        position: "top-end",
+        toast: true,
+        icon: "info",
+        title:
+          newJobs.length === 1
+            ? "มีเคสใหม่ค่ะ"
+            : `มีเคสใหม่ ${newJobs.length} เคสค่ะ`,
+        html: alertHtml,
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true,
+        width: "390px",
+      });
+    } catch (error) {
+      console.error(
+        "Check new porter jobs error:",
+        error,
+      );
+    } finally {
+      isCheckingNewJobsRef.current =
+        false;
+    }
+  }
+
+  /*
+   * ตรวจทันทีเมื่อเปิดหน้า
+   */
+  void checkForNewJobs();
+
+  /*
+   * ตรวจทุก 30 วินาที
+   */
+  const timer =
+    window.setInterval(
+      async () => {
+        await checkForNewJobs();
+
+        if (!isDisposed) {
+          router.refresh();
+        }
+      },
+      30_000,
+    );
+
+  /*
+   * ถ้าผู้ใช้กลับมาที่หน้าเว็บ
+   * ให้ตรวจงานทันที
+   */
+  function handleVisibilityChange(): void {
+    if (
+      document.visibilityState ===
+      "visible"
+    ) {
+      void checkForNewJobs();
+      router.refresh();
+    }
+  }
+
+  document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+  );
+
+  return () => {
+    isDisposed = true;
+
+    window.clearInterval(
+      timer,
+    );
+
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+  };
+}, [router]);
 
   async function handleCancel(): Promise<void> {
     if (

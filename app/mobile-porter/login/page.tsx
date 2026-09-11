@@ -10,6 +10,10 @@ import {
 
 import Swal from "sweetalert2";
 
+import {
+  getCurrentPorterAssignment,
+} from "@/lib/porter-live";
+
 type LoginResponse = {
   success?: boolean;
   message?: string;
@@ -204,17 +208,28 @@ export default function PorterLoginPage() {
       window.sessionStorage.setItem(
         "porterStaffName",
         staffName,
-      );
+        );
 
-      // =========================
-      // ไปหน้า Dashboard
-      // ไม่มี ?userid=...
-      // =========================
-      router.replace(
-        "/mobile-porter",
-      );
+        // =========================
+        // ตรวจว่ามีงานที่รับค้างอยู่หรือไม่
+        // =========================
+        const currentAssignment =
+            await getCurrentPorterAssignment(
+                staffNo,
+        );
 
-      router.refresh();
+        if (currentAssignment) {
+        router.replace(
+            "/mobile-porter/current",
+        );
+        } else {
+        router.replace(
+            "/mobile-porter",
+        );
+        }
+
+        router.refresh();
+
     } catch (error) {
       console.error(
         "Login error:",

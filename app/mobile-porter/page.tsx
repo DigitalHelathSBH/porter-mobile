@@ -6,8 +6,7 @@ import {
   redirect,
 } from "next/navigation";
 
-import PorterDashboardLoader
-  from "@/components/porter-dashboard-loader";
+import PorterDashboardLoader from "@/components/porter-dashboard-loader";
 
 export const dynamic =
   "force-dynamic";
@@ -26,8 +25,8 @@ export default async function MobilePorterPage({
   searchParams,
 }: PageProps) {
   // =========================
-  // อ่าน Login session
-  // จาก HttpOnly Cookie
+  // อ่านรหัสพนักงานจาก Cookie
+  // ไม่ใช้ ?userid=... แล้ว
   // =========================
   const cookieStore =
     await cookies();
@@ -41,7 +40,7 @@ export default async function MobilePorterPage({
 
   // =========================
   // ไม่มี Login session
-  // กลับหน้า Login
+  // ให้กลับหน้า Login
   // =========================
   if (!staffNo) {
     redirect(
@@ -50,7 +49,8 @@ export default async function MobilePorterPage({
   }
 
   // =========================
-  // อ่าน View ของหน้า
+  // อ่าน View
+  // active / finished
   // =========================
   const params =
     await searchParams;
@@ -61,11 +61,9 @@ export default async function MobilePorterPage({
       : "active";
 
   // =========================
-  // ไม่ Query Database
-  // จาก page.tsx แล้ว
-  //
-  // PorterDashboardLoader
-  // จะโหลดข้อมูลผ่าน POST API
+  // Dashboard พร้อม Auto-refresh
+  // PorterDashboardLoader จะโหลดข้อมูล
+  // และ refresh ทุก 30 วินาทีเอง
   // =========================
   return (
     <PorterDashboardLoader
