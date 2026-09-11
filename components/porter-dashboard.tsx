@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 
 import PorterHeader from "@/components/porter-header";
-import { getCurrentPorterAssignment } from "@/lib/porter-live";
 import type { PorterJob } from "@/types/porter";
 
 type DashboardView =
@@ -883,113 +882,6 @@ export default function PorterDashboard({
   }, [
     isFinishedView,
     jobs,
-  ]);
-
-  useEffect(() => {
-    let isDisposed =
-      false;
-
-    async function checkCurrentAssignment(): Promise<boolean> {
-      if (
-        disableActiveJobRedirect
-        || !staffNo
-      ) {
-        return false;
-      }
-
-      try {
-        const assignment =
-          await getCurrentPorterAssignment(
-            staffNo,
-          );
-
-        if (
-          isDisposed
-          || !assignment
-        ) {
-          return false;
-        }
-
-        // =========================
-        // ไม่ส่ง userid ใน URL แล้ว
-        // =========================
-        router.replace(
-          "/mobile-porter/current",
-        );
-
-        return true;
-      } catch (error) {
-        console.error(
-          "Check current porter assignment error:",
-          error,
-        );
-
-        return false;
-      }
-    }
-
-    async function refreshJobs(): Promise<void> {
-      if (
-        document.visibilityState
-        !== "visible"
-      ) {
-        return;
-      }
-
-      const redirected =
-        await checkCurrentAssignment();
-
-      if (
-        redirected
-        || isDisposed
-      ) {
-        return;
-      }
-
-      router.refresh();
-    }
-
-    void refreshJobs();
-
-    const timer =
-      window.setInterval(
-        () => {
-          void refreshJobs();
-        },
-        30_000,
-      );
-
-    function handleVisibilityChange(): void {
-      if (
-        document.visibilityState
-        === "visible"
-      ) {
-        void refreshJobs();
-      }
-    }
-
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibilityChange,
-    );
-
-    return () => {
-      isDisposed =
-        true;
-
-      window.clearInterval(
-        timer,
-      );
-
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibilityChange,
-      );
-    };
-  }, [
-    disableActiveJobRedirect,
-    router,
-    staffNo,
   ]);
 
   function handleViewChange(
