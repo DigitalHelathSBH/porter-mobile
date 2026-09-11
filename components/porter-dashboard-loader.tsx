@@ -74,12 +74,21 @@ export default function PorterDashboardLoader({
    * ไม่ส่ง staffNo จาก Client
    * เพราะ API จะอ่าน porterStaffNo
    * จาก HttpOnly Cookie เอง
+   *
+   * silent = true
+   * จะโหลดข้อมูลใหม่โดยไม่แสดงหน้า
+   * "กำลังโหลดข้อมูล..."
    */
   const loadDashboard =
     useCallback(
-      async () => {
+      async (
+        silent = false,
+      ) => {
         try {
-          setIsLoading(true);
+          if (!silent) {
+            setIsLoading(true);
+          }
+
           setErrorMessage("");
 
           const response =
@@ -122,7 +131,7 @@ export default function PorterDashboardLoader({
 
           /**
            * Session หมด
-           * หรือยังไม่ได้ Login
+           * หรือไม่ได้ Login
            */
           if (
             response.status === 401
@@ -147,6 +156,9 @@ export default function PorterDashboardLoader({
             );
           }
 
+          /**
+           * อัปเดตข้อมูลพนักงาน
+           */
           setStaffNo(
             String(
               result.staffNo
@@ -161,6 +173,17 @@ export default function PorterDashboardLoader({
             ).trim(),
           );
 
+          /**
+           * อัปเดตรายการงาน
+           *
+           * ถ้ามีงานใหม่
+           * PorterDashboard จะตรวจจับจาก jobs
+           * และแสดง SweetAlert
+           *
+           * ถ้างานถูกกดรับแล้ว API ส่งกลับมา
+           * ไม่มีงานนั้นแล้ว
+           * รายการจะหายออกจากหน้าจอทันที
+           */
           setJobs(
             Array.isArray(
               result.jobs,
@@ -174,14 +197,23 @@ export default function PorterDashboardLoader({
             error,
           );
 
-          setErrorMessage(
-            error
-              instanceof Error
-              ? error.message
-              : "โหลดข้อมูลไม่สำเร็จ",
-          );
+          /**
+           * ถ้าเป็นการ Refresh อัตโนมัติ
+           * ไม่ให้หน้าจอกระพริบเป็น Error
+           * และไม่ลบข้อมูลเดิมออก
+           */
+          if (!silent) {
+            setErrorMessage(
+              error
+                instanceof Error
+                ? error.message
+                : "โหลดข้อมูลไม่สำเร็จ",
+            );
+          }
         } finally {
-          setIsLoading(false);
+          if (!silent) {
+            setIsLoading(false);
+          }
         }
       },
       [
@@ -191,8 +223,7 @@ export default function PorterDashboardLoader({
     );
 
   /**
-   * โหลดข้อมูลเมื่อเปิดหน้า
-   * หรือเปลี่ยน active / finished
+   * โหลดข้อมูลครั้งแรก
    */
   useEffect(
     () => {
@@ -204,18 +235,98 @@ export default function PorterDashboardLoader({
   );
 
   /**
-   * Loading
+   * Refresh ข้อมูลอัตโนมัติทุก 30 วินาที
+   *
+   * ไม่ใช้ router.refresh()
+   *
+   * เพราะข้อมูล Dashboard ถูกโหลดผ่าน
+   * Client fetch POST API
+   */
+  useEffect(
+    () => {
+      let isDisposed = false;
+
+      async function refreshDashboard(): Promise<void> {
+        if (isDisposed) {
+          return;
+        }
+
+        /**
+         * ถ้าไม่ได้เปิดหน้าอยู่
+         * ไม่ต้องยิง API
+         */
+        if (
+          document.visibilityState
+          !== "visible"
+        ) {
+          return;
+        }
+
+        await loadDashboard(true);
+      }
+
+      const timer =
+        window.setInterval(
+          () => {
+            void refreshDashboard();
+          },
+          30_000,
+        );
+
+      /**
+       * ถ้ากลับมาเปิดหน้าอีกครั้ง
+       * ให้โหลดข้อมูลทันที
+       */
+      function handleVisibilityChange(): void {
+        if (
+          document.visibilityState
+          === "visible"
+        ) {
+          void refreshDashboard();
+        }
+      }
+
+      document.addEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+
+      return () => {
+        isDisposed = true;
+
+        window.clearInterval(
+          timer,
+        );
+
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
+      };
+    },
+    [
+      loadDashboard,
+    ],
+  );
+
+  /**
+   * Loading ครั้งแรก
    */
   if (isLoading) {
     return (
       <main
         style={{
-          minHeight: "100vh",
+          minHeight:
+            "100vh",
 
-          display: "grid",
-          placeItems: "center",
+          display:
+            "grid",
 
-          padding: "20px",
+          placeItems:
+            "center",
+
+          padding:
+            "20px",
 
           background:
             "#eef3f8",
@@ -249,12 +360,17 @@ export default function PorterDashboardLoader({
     return (
       <main
         style={{
-          minHeight: "100vh",
+          minHeight:
+            "100vh",
 
-          display: "grid",
-          placeItems: "center",
+          display:
+            "grid",
 
-          padding: "20px",
+          placeItems:
+            "center",
+
+          padding:
+            "20px",
 
           background:
             "#eef3f8",
@@ -368,14 +484,25 @@ export default function PorterDashboardLoader({
   }
 
   /**
-   * แสดง Dashboard เดิม
+   * แสดง Dashboard
    */
   return (
     <PorterDashboard
-      staffNo={staffNo}
-      staffName={staffName}
-      jobs={jobs}
-      viewMode={viewMode}
+      staffNo={
+        staffNo
+      }
+
+      staffName={
+        staffName
+      }
+
+      jobs={
+        jobs
+      }
+
+      viewMode={
+        viewMode
+      }
     />
   );
 }
