@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+import { cookies } from "next/headers";
 import {
   finishPorterJobDb,
 } from "@/lib/porter";
@@ -98,11 +98,15 @@ export async function POST(
         body.reqNo,
       );
 
-    const staffNo =
-      getText(
-        body.staffNo,
-      );
+    const cookieStore =
+      await cookies();
 
+    const staffNo =
+      String(
+        cookieStore.get(
+          "porterStaffNo",
+        )?.value ?? "",
+      ).trim();
     if (
       !reqNo
       || !staffNo

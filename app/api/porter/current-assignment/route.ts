@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { cookies } from "next/headers";
+
 import {
   getCurrentPorterAssignment,
 } from "@/lib/porter";
@@ -27,8 +29,15 @@ export async function POST(
     const body =
       (await request.json()) as RequestBody;
 
+        const cookieStore =
+      await cookies();
+
     const staffNo =
-      getText(body.staffNo);
+      String(
+        cookieStore.get(
+          "porterStaffNo",
+        )?.value ?? "",
+      ).trim();
 
     if (!staffNo) {
       return NextResponse.json(

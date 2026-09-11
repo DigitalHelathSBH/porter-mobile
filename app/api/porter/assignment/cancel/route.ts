@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+import { cookies } from "next/headers";
 import {
   cancelPorterJobDb,
 } from "@/lib/porter";
@@ -98,10 +98,15 @@ export async function POST(
         body.reqNo,
       );
 
+    const cookieStore =
+      await cookies();
+
     const staffNo =
-      getText(
-        body.staffNo,
-      );
+      String(
+        cookieStore.get(
+          "porterStaffNo",
+        )?.value ?? "",
+      ).trim();
 
     if (
       !reqNo
