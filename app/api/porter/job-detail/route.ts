@@ -138,16 +138,17 @@ export async function POST(
     // และชื่อพนักงาน
     // =========================
     const [
-      jobs,
+      erJobs,
+      opdJobs,
       staffName,
     ] =
       await Promise.all([
-        getWaitingJobs(),
-
-        getStaffDisplayName(
-          staffNo,
-        ),
+        getWaitingJobs("ศูนย์เปล ER"),
+        getWaitingJobs("ศูนย์เปล OPD"),
+        getStaffDisplayName(staffNo),
       ]);
+
+    const jobs = [...erJobs, ...opdJobs];
 
     // =========================
     // ค้นหางานจาก ReqNo

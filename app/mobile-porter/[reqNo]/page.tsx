@@ -10,27 +10,19 @@ import PorterDetailLoader
   from "@/components/porter-detail-loader";
 
 type PageProps = {
-  params: Promise<{
-    reqNo: string;
-  }>;
+  params: Promise<{ reqNo: string }>;
+  searchParams: Promise<{ view?: string }>;
 };
-
-export const dynamic =
-  "force-dynamic";
 
 export default async function PorterJobDetailPage({
   params,
+  searchParams,
 }: PageProps) {
-  // =========================
-  // อ่าน ReqNo จาก URL
-  // =========================
-  const routeParams =
-    await params;
+  const routeParams = await params;
+  const query = await searchParams;
 
-  const reqNo =
-    String(
-      routeParams.reqNo ?? "",
-    ).trim();
+  const reqNo = String(routeParams.reqNo ?? "").trim();
+  const backView = String(query.view ?? "").trim();
 
   // =========================
   // ตรวจ Login session
@@ -76,8 +68,9 @@ export default async function PorterJobDetailPage({
   // เพื่อโหลดข้อมูลจริง
   // =========================
   return (
-    <PorterDetailLoader
-      reqNo={reqNo}
-    />
+  <PorterDetailLoader
+    reqNo={reqNo}
+    backView={backView}
+  />
   );
 }

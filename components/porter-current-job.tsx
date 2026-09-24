@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { useRouter } from "next/navigation";
+
 import Swal from "sweetalert2";
 
 import PorterHeader from "@/components/porter-header";
@@ -40,13 +41,9 @@ type Props = {
 };
 
 function getUrgencyStyle(
-  fastTrack: string,
+  fastTrack: string | null | undefined,
 ): CSSProperties {
-  switch (
-    String(
-      fastTrack ?? "0",
-    ).trim()
-  ) {
+  switch (String(fastTrack ?? "0").trim()) {
     case "2":
       return {
         color: "#d74646",
@@ -134,13 +131,9 @@ function HourglassIcon({
 }
 
 function getUrgencyIcon(
-  fastTrack: string,
+  fastTrack: string | null | undefined,
 ): ReactNode {
-  switch (
-    String(
-      fastTrack ?? "0",
-    ).trim()
-  ) {
+  switch (String(fastTrack ?? "0").trim()) {
     case "2":
       return (
         <LightningIcon
@@ -171,16 +164,15 @@ function getUrgencyIcon(
 function getEquipmentIcon(
   equipment: string | null | undefined,
 ): ReactNode {
-  const text =
-    String(
-      equipment ?? "",
-    ).toLowerCase();
+  const text = String(
+    equipment ?? "",
+  ).toLowerCase();
 
   const isSyringe =
-    text.includes("เข็ม")
-    || text.includes("ฉีด")
-    || text.includes("syringe")
-    || text.includes("pump");
+    text.includes("เข็ม") ||
+    text.includes("ฉีด") ||
+    text.includes("syringe") ||
+    text.includes("pump");
 
   if (isSyringe) {
     return (
@@ -239,10 +231,7 @@ function formatAssignedAt(
     return "-";
   }
 
-  const text =
-    String(
-      value,
-    ).trim();
+  const text = String(value).trim();
 
   const thaiMonths = [
     "มกราคม",
@@ -259,46 +248,33 @@ function formatAssignedAt(
     "ธันวาคม",
   ];
 
-  const matched =
-    text.match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
-    );
+  const matched = text.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::\d{2})?$/,
+  );
 
   if (matched) {
-    const day =
-      Number(
-        matched[1],
-      );
+    const day = Number(matched[1]);
 
     const monthIndex =
-      Number(
-        matched[2],
-      ) - 1;
+      Number(matched[2]) - 1;
 
-    let year =
-      Number(
-        matched[3],
-      );
+    let year = Number(matched[3]);
 
     if (year < 2400) {
       year += 543;
     }
 
     const hour =
-      matched[4].padStart(
-        2,
-        "0",
-      );
+      matched[4].padStart(2, "0");
 
-    const minute =
-      matched[5];
+    const minute = matched[5];
 
-    return (
-      `${day} `
-      + `${thaiMonths[monthIndex]} `
-      + `${year} `
-      + `${hour}:${minute}`
-    );
+    if (
+      monthIndex >= 0 &&
+      monthIndex < thaiMonths.length
+    ) {
+      return `${day} ${thaiMonths[monthIndex]} ${year} ${hour}:${minute}`;
+    }
   }
 
   return text;
@@ -319,38 +295,21 @@ function DetailItem({
     <div
       style={{
         ...styles.detailItem,
-
         ...(fullWidth
           ? styles.detailItemFull
           : {}),
       }}
     >
-      <div
-        style={
-          styles.detailIcon
-        }
-      >
+      <div style={styles.detailIcon}>
         {icon}
       </div>
 
-      <div
-        style={
-          styles.detailText
-        }
-      >
-        <div
-          style={
-            styles.detailLabel
-          }
-        >
+      <div style={styles.detailText}>
+        <div style={styles.detailLabel}>
           {label}
         </div>
 
-        <div
-          style={
-            styles.detailValue
-          }
-        >
+        <div style={styles.detailValue}>
           {value || "-"}
         </div>
       </div>
@@ -361,8 +320,7 @@ function DetailItem({
 export default function PorterCurrentJob({
   staffNo,
 }: Props) {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   const [
     assignment,
@@ -374,500 +332,321 @@ export default function PorterCurrentJob({
 
   const [
     isReady,
-    setIsReady,
-  ] =
-    useState(false);
+    setIsReady, 
+  ] = useState(false);
 
   const [
-    isFinishing,
-    setIsFinishing,
-  ] =
-    useState(false);
+    processingReqNo,
+    setProcessingReqNo,
+  ] = useState<string | null>(null);
 
   const [
-    isCancelling,
-    setIsCancelling,
+    processingAction,
+    setProcessingAction,
   ] =
-    useState(false);
-
-  const knownJobReqNosRef =
-    useRef<Set<string>>(new Set());
-
-  const hasInitializedNewJobsRef =
+    useState<
+      "cancel" | "finish" | null
+    >(null);
+  
+  const isDisposedRef =
     useRef(false);
 
-  const isCheckingNewJobsRef =
-    useRef(false);
-
-  // ==========================================
-  // กลับ Dashboard
-  //
-  // ไม่มี userid ใน URL แล้ว
-  //
-  // active:
-  // /mobile-porter
-  //
-  // finished:
-  // /mobile-porter?view=finished
-  // ==========================================
-  function goToDashboard(
-    view:
-      | "active"
-      | "finished"
-      = "active",
-  ): void {
-    if (
-      view === "finished"
-    ) {
-      router.replace(
-        "/mobile-porter?view=finished",
-      );
-
-      return;
-    }
-
+  function goToDashboard(): void {
     router.replace(
       "/mobile-porter",
     );
   }
 
   useEffect(() => {
-    let isDisposed =
-      false;
+  isDisposedRef.current = false;
 
-    async function loadCurrentAssignment(): Promise<void> {
-      if (
-        !staffNo.trim()
+  async function loadCurrentAssignment(): Promise<void> {
+    if (!staffNo.trim()) {
+      goToDashboard();
+      return;
+    }
+
+    try {
+      let currentAssignment:
+        | PorterLiveAssignment
+        | null = null;
+
+      for (
+        let attempt = 0;
+        attempt < 3;
+        attempt++
       ) {
-        goToDashboard(
-          "active",
-        );
+        if (isDisposedRef.current) {
+          return;
+        }
 
-        return;
-      }
-
-      try {
-        // ==================================
-        // ตรวจงานปัจจุบัน
-        // ตอนนี้ใช้ POST แล้ว
-        // ==================================
-        const currentAssignment =
+        currentAssignment =
           await getCurrentPorterAssignment(
             staffNo,
           );
 
-        if (
-          isDisposed
-        ) {
-          return;
+        if (currentAssignment) {
+          break;
         }
 
-        if (
-          !currentAssignment
-        ) {
-          goToDashboard(
-            "active",
-          );
-
-          return;
-        }
-
-        setAssignment(
-          currentAssignment,
-        );
-
-        setIsReady(
-          true,
-        );
-      } catch (error) {
-        console.error(
-          "Load current assignment error:",
-          error,
-        );
-
-        if (
-          !isDisposed
-        ) {
-          await Swal.fire({
-            position:
-              "top-end",
-
-            toast:
-              true,
-
-            icon:
-              "error",
-
-            title:
-              "โหลดงานปัจจุบันไม่สำเร็จ",
-
-            showConfirmButton:
-              false,
-
-            timer:
-              2200,
-
-            timerProgressBar:
-              true,
-          });
-
-          goToDashboard(
-            "active",
+        if (attempt < 2) {
+          await new Promise<void>(
+            (resolve) => {
+              window.setTimeout(
+                resolve,
+                500,
+              );
+            },
           );
         }
       }
+
+      if (isDisposedRef.current) {
+        return;
+      }
+
+      if (
+        !currentAssignment ||
+        !currentAssignment.jobs ||
+        currentAssignment.jobs.length === 0
+      ) {
+        goToDashboard();
+        return;
+      }
+
+      setAssignment(
+        currentAssignment,
+      );
+
+      setIsReady(true);
+    } catch (error) {
+      console.error(
+        "Load current assignment error:",
+        error,
+      );
+
+      if (
+        !isDisposedRef.current
+      ) {
+        await Swal.fire({
+          position: "top-end",
+          toast: true,
+          icon: "error",
+          title:
+            "โหลดงานปัจจุบันไม่สำเร็จ",
+          showConfirmButton: false,
+          timer: 2200,
+          timerProgressBar: true,
+        });
+
+        goToDashboard();
+      }
     }
-
-    void loadCurrentAssignment();
-
-    return () => {
-      isDisposed =
-        true;
-    };
-  }, [
-    router,
-    staffNo,
-  ]);
-
-  useEffect(() => {
-  let isDisposed = false;
-
-  type DashboardJob = {
-    reqNo: string;
-    locSource?: string | null;
-    locDest?: string | null;
-  };
-
-  type DashboardResponse = {
-    success?: boolean;
-    message?: string;
-    jobs?: DashboardJob[];
-  };
-
-  function escapeHtml(value: unknown): string {
-    return String(value ?? "-")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
   }
 
-  async function checkForNewJobs(): Promise<void> {
+  async function pollCurrentAssignment(): Promise<void> {
     if (
-      isDisposed ||
-      isCheckingNewJobsRef.current ||
-      document.visibilityState !== "visible"
+      isDisposedRef.current ||
+      !staffNo.trim()
     ) {
       return;
     }
 
-    isCheckingNewJobsRef.current = true;
-
     try {
-      const response = await fetch(
-        "/api/porter/dashboard",
-        {
-          method: "POST",
-          cache: "no-store",
-          credentials: "same-origin",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-          body: JSON.stringify({
-            view: "active",
-          }),
-        },
-      );
-
-      let result: DashboardResponse;
-
-      try {
-        result =
-          (await response.json()) as DashboardResponse;
-      } catch {
-        return;
-      }
-
-      if (isDisposed) {
-        return;
-      }
-
-      if (response.status === 401) {
-        router.replace(
-          "/mobile-porter/login",
+      const nextAssignment =
+        await getCurrentPorterAssignment(
+          staffNo,
         );
-        return;
-      }
 
       if (
-        !response.ok ||
-        !result.success
+        isDisposedRef.current
       ) {
         return;
       }
 
-      const jobs = Array.isArray(result.jobs)
-        ? result.jobs.filter(
-            (job) =>
-              String(
-                job.reqNo ?? "",
-              ).trim(),
-          )
-        : [];
-
-      const currentReqNos =
-        new Set(
-          jobs.map(
-            (job) =>
-              String(
-                job.reqNo,
-              ).trim(),
-          ),
-        );
-
       /*
-       * ครั้งแรก:
-       * จำรายการงานปัจจุบันไว้ก่อน
-       * ไม่แจ้งเตือนงานที่มีอยู่ก่อนแล้ว
+       * ถ้ามีงานใหม่ ให้เอาข้อมูลชุดใหม่มาแสดงทันที
+       * โดยไม่เปลี่ยนหน้าตา UI
        */
       if (
-        !hasInitializedNewJobsRef.current
+        nextAssignment &&
+        nextAssignment.jobs &&
+        nextAssignment.jobs.length > 0
       ) {
-        knownJobReqNosRef.current =
-          currentReqNos;
-
-        hasInitializedNewJobsRef.current =
-          true;
-
-        return;
-      }
-
-      /*
-       * รอบต่อไป:
-       * หา ReqNo ที่เพิ่งเข้ามาใหม่
-       */
-      const newJobs =
-        jobs.filter(
-          (job) =>
-            !knownJobReqNosRef.current.has(
-              String(
-                job.reqNo,
-              ).trim(),
-            ),
+        setAssignment(
+          nextAssignment,
         );
-
-      /*
-       * อัปเดตรายการล่าสุด
-       */
-      knownJobReqNosRef.current =
-        currentReqNos;
-
-      if (
-        newJobs.length === 0 ||
-        isDisposed
-      ) {
-        return;
       }
-
-      const alertHtml =
-        newJobs
-          .map(
-            (job) => `
-              <div style="
-                text-align:left;
-                padding:8px 0;
-                border-bottom:1px solid #eeeeee;
-              ">
-                <strong>
-                  ${escapeHtml(
-                    job.reqNo,
-                  )}
-                </strong>
-                <br>
-                ${escapeHtml(
-                  job.locSource,
-                )}
-                →
-                ${escapeHtml(
-                  job.locDest,
-                )}
-              </div>
-            `,
-          )
-          .join("");
-
-      await Swal.fire({
-        position: "top-end",
-        toast: true,
-        icon: "info",
-        title:
-          newJobs.length === 1
-            ? "มีเคสใหม่ค่ะ"
-            : `มีเคสใหม่ ${newJobs.length} เคสค่ะ`,
-        html: alertHtml,
-        showConfirmButton: false,
-        timer: 5000,
-        timerProgressBar: true,
-        width: "390px",
-      });
     } catch (error) {
+      /*
+       * การ polling ถ้าพลาดชั่วคราว
+       * ไม่ต้องเด้งออกจากหน้า
+       * และไม่ต้องแสดง Swal ทุก 30 วินาที
+       */
       console.error(
-        "Check new porter jobs error:",
+        "Polling current assignment error:",
         error,
       );
-    } finally {
-      isCheckingNewJobsRef.current =
-        false;
     }
   }
 
-  /*
-   * ตรวจทันทีเมื่อเปิดหน้า
-   */
-  void checkForNewJobs();
+  void loadCurrentAssignment();
 
   /*
-   * ตรวจทุก 30 วินาที
+   * ตรวจงานใหม่ทุก 30 วินาที
    */
-  const timer =
-    window.setInterval(
-      async () => {
-        await checkForNewJobs();
-
-        if (!isDisposed) {
-          router.refresh();
-        }
-      },
-      30_000,
-    );
+  const intervalId =
+    window.setInterval(() => {
+      void pollCurrentAssignment();
+    }, 30000);
 
   /*
-   * ถ้าผู้ใช้กลับมาที่หน้าเว็บ
-   * ให้ตรวจงานทันที
+   * ถ้ากลับมาเปิดหน้า / กลับมา Tab นี้
+   * ให้ตรวจงานใหม่ทันที
    */
-  function handleVisibilityChange(): void {
-    if (
-      document.visibilityState ===
-      "visible"
-    ) {
-      void checkForNewJobs();
-      router.refresh();
-    }
-  }
+  const handleVisibilityChange =
+    (): void => {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        void pollCurrentAssignment();
+      }
+    };
+
+  const handleFocus =
+    (): void => {
+      void pollCurrentAssignment();
+    };
 
   document.addEventListener(
     "visibilitychange",
     handleVisibilityChange,
   );
 
+  window.addEventListener(
+    "focus",
+    handleFocus,
+  );
+
   return () => {
-    isDisposed = true;
+    isDisposedRef.current = true;
 
     window.clearInterval(
-      timer,
+      intervalId,
     );
 
     document.removeEventListener(
       "visibilitychange",
       handleVisibilityChange,
     );
-  };
-}, [router]);
 
-  async function handleCancel(): Promise<void> {
+    window.removeEventListener(
+      "focus",
+      handleFocus,
+    );
+  };
+}, [staffNo]);
+
+  async function reloadAssignment(): Promise<boolean> {
+    try {
+      const nextAssignment =
+        await getCurrentPorterAssignment(
+          staffNo,
+        );
+
+      if (
+        !nextAssignment ||
+        !nextAssignment.jobs ||
+        nextAssignment.jobs.length === 0
+      ) {
+        setAssignment(null);
+        return false;
+      }
+
+      setAssignment(
+        nextAssignment,
+      );
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Reload current assignment error:",
+        error,
+      );
+
+      return false;
+    }
+  }
+
+  async function handleCancel(
+    reqNo: string,
+  ): Promise<void> {
     if (
-      !assignment
-      || isCancelling
-      || isFinishing
+      !assignment ||
+      processingReqNo ||
+      !reqNo.trim()
     ) {
       return;
     }
 
-    try {
-      setIsCancelling(
-        true,
+    const job =
+      assignment.jobs.find(
+        (item) =>
+          item.reqNo === reqNo,
       );
 
-      const cancelledReqNo =
-        assignment.job.reqNo;
+    if (!job) {
+      return;
+    }
+
+    if (job.isHeadJob) {
+      return;
+    }
+
+    try {
+      setProcessingReqNo(reqNo);
+      setProcessingAction("cancel");
 
       const result =
         await cancelPorterJob({
           staffNo,
-
-          reqNo:
-            cancelledReqNo,
+          reqNo,
         });
 
-      if (
-        !result.success
-      ) {
+      if (!result.success) {
         await Swal.fire({
-          position:
-            "top-end",
-
-          toast:
-            true,
-
-          icon:
-            "error",
-
+          position: "top-end",
+          toast: true,
+          icon: "error",
           title:
             "ยกเลิกงานไม่สำเร็จ",
-
-          text:
-            result.message,
-
-          showConfirmButton:
-            false,
-
-          timer:
-            2500,
-
-          timerProgressBar:
-            true,
+          text: result.message,
+          showConfirmButton: false,
+          timer: 2500,
+          timerProgressBar: true,
         });
 
         return;
       }
 
-      setAssignment(
-        null,
-      );
+      const hasNextJobs =
+        await reloadAssignment();
 
       await Swal.fire({
-        position:
-          "top-end",
-
-        toast:
-          true,
-
-        icon:
-          "success",
-
+        position: "top-end",
+        toast: true,
+        icon: "success",
         title:
-          `ยกเลิกงาน ${cancelledReqNo} `
-          + "เรียบร้อยแล้ว",
-
-        showConfirmButton:
-          false,
-
-        timer:
-          1500,
-
-        timerProgressBar:
-          true,
+          `ยกเลิกงาน ${reqNo} เรียบร้อยแล้ว`,
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true,
       });
 
-      // ==================================
-      // กลับหน้า Dashboard
-      // ไม่มี userid ใน URL
-      // ==================================
-      goToDashboard(
-        "active",
-      );
+      if (!hasNextJobs) {
+        goToDashboard();
+      }
     } catch (error) {
       console.error(
         "Cancel job error:",
@@ -875,126 +654,85 @@ export default function PorterCurrentJob({
       );
 
       await Swal.fire({
-        position:
-          "top-end",
-
-        toast:
-          true,
-
-        icon:
-          "error",
-
+        position: "top-end",
+        toast: true,
+        icon: "error",
         title:
           "ยกเลิกงานไม่สำเร็จ",
-
-        showConfirmButton:
-          false,
-
-        timer:
-          2000,
-
-        timerProgressBar:
-          true,
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
       });
     } finally {
-      setIsCancelling(
-        false,
-      );
+      setProcessingReqNo(null);
+      setProcessingAction(null);
     }
   }
 
-  async function handleFinish(): Promise<void> {
+  async function handleFinish(
+    reqNo: string,
+  ): Promise<void> {
     if (
-      !assignment
-      || isFinishing
-      || isCancelling
+      !assignment ||
+      processingReqNo ||
+      !reqNo.trim()
     ) {
       return;
     }
 
-    try {
-      setIsFinishing(
-        true,
+    const job =
+      assignment.jobs.find(
+        (item) =>
+          item.reqNo === reqNo,
       );
 
-      const finishedReqNo =
-        assignment.job.reqNo;
+    if (!job) {
+      return;
+    }
+
+    try {
+      setProcessingReqNo(reqNo);
+      setProcessingAction("finish");
 
       const result =
         await finishPorterJob({
           staffNo,
-
-          reqNo:
-            finishedReqNo,
+          reqNo,
         });
 
-      if (
-        !result.success
-      ) {
+      if (!result.success) {
         await Swal.fire({
-          position:
-            "top-end",
-
-          toast:
-            true,
-
-          icon:
-            "error",
-
+          position: "top-end",
+          toast: true,
+          icon: "error",
           title:
             "บันทึกไม่สำเร็จ",
-
-          text:
-            result.message,
-
-          showConfirmButton:
-            false,
-
-          timer:
-            2500,
-
-          timerProgressBar:
-            true,
+          text: result.message,
+          showConfirmButton: false,
+          timer: 2500,
+          timerProgressBar: true,
         });
 
         return;
       }
 
-      setAssignment(
-        null,
-      );
+      const hasNextJobs =
+        await reloadAssignment();
 
       await Swal.fire({
-        position:
-          "top-end",
-
-        toast:
-          true,
-
-        icon:
-          "success",
-
+        position: "top-end",
+        toast: true,
+        icon: "success",
         title:
-          `งาน ${finishedReqNo} `
-          + "เสร็จสิ้นแล้ว",
-
-        showConfirmButton:
-          false,
-
-        timer:
-          1500,
-
-        timerProgressBar:
-          true,
+          `งาน ${reqNo} เสร็จสิ้นแล้ว`,
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true,
       });
 
-      // ==================================
-      // กลับหน้า Dashboard
-      // ไม่มี userid ใน URL
-      // ==================================
-      goToDashboard(
-        "active",
-      );
+      if (!hasNextJobs) {
+        goToDashboard();
+      }
     } catch (error) {
       console.error(
         "Finish job error:",
@@ -1002,39 +740,63 @@ export default function PorterCurrentJob({
       );
 
       await Swal.fire({
-        position:
-          "top-end",
-
-        toast:
-          true,
-
-        icon:
-          "error",
-
+        position: "top-end",
+        toast: true,
+        icon: "error",
         title:
           "บันทึกไม่สำเร็จ",
-
-        showConfirmButton:
-          false,
-
-        timer:
-          2000,
-
-        timerProgressBar:
-          true,
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
       });
     } finally {
-      setIsFinishing(
-        false,
-      );
+      setProcessingReqNo(null);
+      setProcessingAction(null);
     }
   }
 
-  // ==========================================
-  // Loading
-  // ==========================================
+  if (!isReady) {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        padding: "10px",
+        background: "#eef3f8",
+        fontFamily: 'Tahoma, "Noto Sans Thai", Arial, sans-serif',
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "430px", margin: "0 auto" }}>
+        <div
+          style={{
+            marginTop: "60px",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              width: "26px",
+              height: "26px",
+              border: "3px solid #d7e6f3",
+              borderTopColor: "#176fca",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+            }}
+          />
+        </div>
+
+        <style>
+          {`@keyframes spin { to { transform: rotate(360deg); } }`}
+        </style>
+      </div>
+    </main>
+  );
+}
+
   if (
-    !isReady
+    !assignment ||
+    !assignment.jobs ||
+    assignment.jobs.length === 0
   ) {
     return (
       <main
@@ -1063,49 +825,12 @@ export default function PorterCurrentJob({
               styles.messageTitle
             }
           >
-            กำลังตรวจสอบงานปัจจุบัน
+            ไม่พบงานที่กำลังดำเนินการ
           </div>
 
           <div
             style={
               styles.messageText
-            }
-          >
-            กรุณารอสักครู่
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  if (
-    !assignment
-  ) {
-    return (
-      <main
-        style={
-          styles.centerPage
-        }
-      >
-        <section
-          style={
-            styles.messageCard
-          }
-        >
-          <div
-            style={
-              styles.loadingIcon
-            }
-          >
-            <ClockIcon
-              size={27}
-              color="#0d6fd1"
-            />
-          </div>
-
-          <div
-            style={
-              styles.messageTitle
             }
           >
             กำลังกลับหน้ารายการงาน
@@ -1115,8 +840,8 @@ export default function PorterCurrentJob({
     );
   }
 
-  const job =
-    assignment.job;
+  const jobs =
+    assignment.jobs;
 
   return (
     <main
@@ -1129,12 +854,6 @@ export default function PorterCurrentJob({
           styles.container
         }
       >
-        {/*
-          =================================
-          HEADER กลาง
-          ไม่มี showLogout
-          =================================
-        */}
         <PorterHeader
           staffNo={
             assignment.staffNo
@@ -1146,407 +865,407 @@ export default function PorterCurrentJob({
           subtitle="งานที่กำลังดำเนินการ"
         />
 
-        {/* =================================
-            รหัสงาน + เวลารับงาน
-        ================================= */}
-        <section
-          style={
-            styles.statusCard
-          }
-        >
-          <div
-            style={
-              styles.statusTop
-            }
-          >
-            <div
+        {jobs.map((job) => {
+          const isProcessing =
+            processingReqNo ===
+            job.reqNo;
+
+          const isCancellingThis =
+            isProcessing &&
+            processingAction ===
+              "cancel";
+
+          const isFinishingThis =
+            isProcessing &&
+            processingAction ===
+              "finish";
+
+          return (
+            <section
+              key={job.reqNo}
               style={
-                styles.reqArea
+                styles.jobCard
               }
             >
-              <div
+              <section
                 style={
-                  styles.reqLabel
+                  styles.statusCard
                 }
               >
-                รหัสงาน
-              </div>
+                <div
+                  style={
+                    styles.statusTop
+                  }
+                >
+                  <div
+                    style={
+                      styles.reqArea
+                    }
+                  >
+                    <div
+                      style={
+                        styles.reqLabel
+                      }
+                    >
+                      รหัสงาน
+                    </div>
+
+                    <div
+                      style={
+                        styles.reqNo
+                      }
+                    >
+                      {job.reqNo}
+                    </div>
+
+                    <div
+                      style={
+                        styles.assignedTime
+                      }
+                    >
+                      <CalendarIcon
+                        size={15}
+                        color="#718498"
+                      />
+
+                      <span>
+                        รับงานเมื่อ{" "}
+                        {formatAssignedAt(
+                          job.assignedAt,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      ...styles.urgencyBadge,
+                      ...getUrgencyStyle(
+                        job.fastTrack,
+                      ),
+                    }}
+                  >
+                    {getUrgencyIcon(
+                      job.fastTrack,
+                    )}
+
+                    {job.fastTrackText ||
+                      "ปกติ"}
+                  </span>
+                </div>
+
+                {job.isHeadJob && (
+                  <div
+                    style={
+                      styles.headJobBadge
+                    }
+                  >
+                    งานที่หัวหน้าเวรมอบหมาย
+                  </div>
+                )}
+              </section>
+
+              <section
+                style={
+                  styles.routeCard
+                }
+              >
+                <div
+                  style={
+                    styles.routeRow
+                  }
+                >
+                  <div
+                    style={
+                      styles.sourceMarker
+                    }
+                  >
+                    <span
+                      style={
+                        styles.sourceDot
+                      }
+                    />
+
+                    <span
+                      style={
+                        styles.routeLine
+                      }
+                    />
+                  </div>
+
+                  <div
+                    style={
+                      styles.routeContent
+                    }
+                  >
+                    <div
+                      style={
+                        styles.sourceLabel
+                      }
+                    >
+                      ต้นทาง
+                    </div>
+
+                    <div
+                      style={
+                        styles.routeValue
+                      }
+                    >
+                      <BedIcon
+                        size={21}
+                        color="#2786d8"
+                      />
+
+                      <span>
+                        {job.locSource ||
+                          "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={
+                    styles.routeRow
+                  }
+                >
+                  <div
+                    style={
+                      styles.destinationMarker
+                    }
+                  >
+                    <span
+                      style={
+                        styles.destinationDot
+                      }
+                    />
+                  </div>
+
+                  <div
+                    style={
+                      styles.routeContentLast
+                    }
+                  >
+                    <div
+                      style={
+                        styles.destinationLabel
+                      }
+                    >
+                      ปลายทาง
+                    </div>
+
+                    <div
+                      style={
+                        styles.routeValue
+                      }
+                    >
+                      <HospitalIcon
+                        size={21}
+                        color="#2eaa68"
+                      />
+
+                      <span>
+                        {job.locDest ||
+                          "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                style={
+                  styles.detailCard
+                }
+              >
+                <div
+                  style={
+                    styles.detailGrid
+                  }
+                >
+                  <DetailItem
+                    label="กิจกรรม"
+                    value={
+                      job.locAct
+                    }
+                    icon={
+                      <ClipboardIcon
+                        size={21}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="ประเภทที่ขอ"
+                    value={
+                      job.bedType
+                    }
+                    icon={
+                      <WheelchairIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="เวร"
+                    value={
+                      job.shift
+                    }
+                    icon={
+                      <ClockIcon
+                        size={21}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="เลขเตียง"
+                    value={
+                      job.bedNo
+                    }
+                    icon={
+                      <BedIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="อุปกรณ์"
+                    value={
+                      job.equipment
+                    }
+                    fullWidth
+                    icon={getEquipmentIcon(
+                      job.equipment,
+                    )}
+                  />
+
+                  <DetailItem
+                    label="รายละเอียด"
+                    value={
+                      job.detail
+                    }
+                    fullWidth
+                    icon={
+                      <DetailDescriptionIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="หมายเหตุ"
+                    value={
+                      job.remark
+                    }
+                    fullWidth
+                    icon={
+                      <NoteIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="ผู้แจ้ง"
+                    value={
+                      job.createdBy
+                    }
+                    fullWidth
+                    icon={
+                      <UserIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+
+                  <DetailItem
+                    label="วันที่และเวลาที่แจ้งงาน"
+                    value={
+                      job.createdAt
+                    }
+                    fullWidth
+                    icon={
+                      <CalendarIcon
+                        size={22}
+                        color="#1774c8"
+                      />
+                    }
+                  />
+                </div>
+              </section>
 
               <div
                 style={
-                  styles.reqNo
+                  styles.jobActionBar
                 }
               >
-                {job.reqNo}
-              </div>
+                {!job.isHeadJob && (
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.cancelButton,
+                      ...(isProcessing
+                        ? styles.disabledButton
+                        : {}),
+                    }}
+                    disabled={
+                      !!processingReqNo
+                    }
+                    onClick={() =>
+                      void handleCancel(
+                        job.reqNo,
+                      )
+                    }
+                  >
+                    {isCancellingThis
+                      ? "กำลังยกเลิก..."
+                      : "ยกเลิกเคสนี้"}
+                  </button>
+                )}
 
-              <div
-                style={
-                  styles.assignedTime
-                }
-              >
-                <CalendarIcon
-                  size={15}
-                  color="#718498"
-                />
-
-                <span>
-                  รับงานเมื่อ{" "}
-                  {
-                    formatAssignedAt(
-                      assignment.assignedAt,
+                <button
+                  type="button"
+                  style={{
+                    ...styles.finishButton,
+                    ...(isProcessing
+                      ? styles.disabledButton
+                      : {}),
+                    ...(job.isHeadJob
+                      ? styles.headFinishButton
+                      : {}),
+                  }}
+                  disabled={
+                    !!processingReqNo
+                  }
+                  onClick={() =>
+                    void handleFinish(
+                      job.reqNo,
                     )
                   }
-                </span>
+                >
+                  <CheckIcon
+                    size={21}
+                    color="#ffffff"
+                  />
+
+                  {isFinishingThis
+                    ? "กำลังบันทึก..."
+                    : "เสร็จสิ้นงาน"}
+                </button>
               </div>
-            </div>
-
-            <span
-              style={{
-                ...styles.urgencyBadge,
-
-                ...getUrgencyStyle(
-                  job.fastTrack,
-                ),
-              }}
-            >
-              {
-                getUrgencyIcon(
-                  job.fastTrack,
-                )
-              }
-
-              {
-                job.fastTrackText
-              }
-            </span>
-          </div>
-        </section>
-
-        {/* =================================
-            ต้นทาง / ปลายทาง
-        ================================= */}
-        <section
-          style={
-            styles.routeCard
-          }
-        >
-          <div
-            style={
-              styles.routeRow
-            }
-          >
-            <div
-              style={
-                styles.sourceMarker
-              }
-            >
-              <span
-                style={
-                  styles.sourceDot
-                }
-              />
-
-              <span
-                style={
-                  styles.routeLine
-                }
-              />
-            </div>
-
-            <div
-              style={
-                styles.routeContent
-              }
-            >
-              <div
-                style={
-                  styles.sourceLabel
-                }
-              >
-                ต้นทาง
-              </div>
-
-              <div
-                style={
-                  styles.routeValue
-                }
-              >
-                <BedIcon
-                  size={21}
-                  color="#2786d8"
-                />
-
-                <span>
-                  {
-                    job.locSource
-                    || "-"
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={
-              styles.routeRow
-            }
-          >
-            <div
-              style={
-                styles.destinationMarker
-              }
-            >
-              <span
-                style={
-                  styles.destinationDot
-                }
-              />
-            </div>
-
-            <div
-              style={
-                styles.routeContentLast
-              }
-            >
-              <div
-                style={
-                  styles.destinationLabel
-                }
-              >
-                ปลายทาง
-              </div>
-
-              <div
-                style={
-                  styles.routeValue
-                }
-              >
-                <HospitalIcon
-                  size={21}
-                  color="#2eaa68"
-                />
-
-                <span>
-                  {
-                    job.locDest
-                    || "-"
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* =================================
-            รายละเอียดงาน
-        ================================= */}
-        <section
-          style={
-            styles.detailCard
-          }
-        >
-          <div
-            style={
-              styles.detailGrid
-            }
-          >
-            <DetailItem
-              label="กิจกรรม"
-              value={
-                job.locAct
-              }
-              icon={
-                <ClipboardIcon
-                  size={21}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="ประเภทที่ขอ"
-              value={
-                job.bedType
-              }
-              icon={
-                <WheelchairIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="เวร"
-              value={
-                job.shift
-              }
-              icon={
-                <ClockIcon
-                  size={21}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="เลขเตียง"
-              value={
-                job.bedNo
-              }
-              icon={
-                <BedIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="อุปกรณ์"
-              value={
-                job.equipment
-              }
-              fullWidth
-              icon={
-                getEquipmentIcon(
-                  job.equipment,
-                )
-              }
-            />
-
-            <DetailItem
-              label="รายละเอียด"
-              value={
-                job.detail
-              }
-              fullWidth
-              icon={
-                <DetailDescriptionIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-            
-            <DetailItem
-              label="หมายเหตุ"
-              value={
-                job.remark
-              }
-              fullWidth
-              icon={
-                <NoteIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="ผู้แจ้ง"
-              value={
-                job.createdBy
-              }
-              fullWidth
-              icon={
-                <UserIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-
-            <DetailItem
-              label="วันที่และเวลาที่แจ้งงาน"
-              value={
-                job.createdAt
-              }
-              fullWidth
-              icon={
-                <CalendarIcon
-                  size={22}
-                  color="#1774c8"
-                />
-              }
-            />
-          </div>
-        </section>
-
-        <div
-          style={
-            styles.bottomSpacer
-          }
-        />
-
-        {/* =================================
-            ปุ่มล่าง
-        ================================= */}
-        <div
-          style={
-            styles.bottomBar
-          }
-        >
-          <button
-            type="button"
-            style={{
-              ...styles.cancelButton,
-
-              ...(
-                isCancelling
-                || isFinishing
-                  ? styles.disabledButton
-                  : {}
-              ),
-            }}
-            disabled={
-              isCancelling
-              || isFinishing
-            }
-            onClick={
-              handleCancel
-            }
-          >
-            {
-              isCancelling
-                ? "กำลังยกเลิก..."
-                : "ยกเลิกเคสนี้"
-            }
-          </button>
-
-          <button
-            type="button"
-            style={{
-              ...styles.finishButton,
-
-              ...(
-                isFinishing
-                || isCancelling
-                  ? styles.disabledButton
-                  : {}
-              ),
-            }}
-            disabled={
-              isFinishing
-              || isCancelling
-            }
-            onClick={
-              handleFinish
-            }
-          >
-            <CheckIcon
-              size={21}
-              color="#ffffff"
-            />
-
-            {
-              isFinishing
-                ? "กำลังบันทึก..."
-                : "เสร็จสิ้นงาน"
-            }
-          </button>
-        </div>
+            </section>
+          );
+        })}
       </div>
     </main>
   );
@@ -1557,731 +1276,365 @@ const styles: Record<
   CSSProperties
 > = {
   centerPage: {
-    minHeight:
-      "100vh",
-
-    padding:
-      "20px",
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    background:
-      "#eef3f8",
-
+    minHeight: "100vh",
+    padding: "20px",
+    display: "grid",
+    placeItems: "center",
+    background: "#eef3f8",
     fontFamily:
       'Tahoma, "Noto Sans Thai", Arial, sans-serif',
   },
 
   messageCard: {
-    width:
-      "min(390px, 100%)",
-
-    padding:
-      "28px",
-
-    display:
-      "grid",
-
-    justifyItems:
-      "center",
-
-    gap:
-      "9px",
-
-    borderRadius:
-      "18px",
-
-    background:
-      "#ffffff",
-
+    width: "min(390px, 100%)",
+    padding: "28px",
+    display: "grid",
+    justifyItems: "center",
+    gap: "9px",
+    borderRadius: "18px",
+    background: "#ffffff",
     boxShadow:
       "0 8px 22px rgba(0,0,0,0.06)",
-
-    textAlign:
-      "center",
-
-    boxSizing:
-      "border-box",
+    textAlign: "center",
+    boxSizing: "border-box",
   },
 
   loadingIcon: {
-    width:
-      "50px",
-
-    height:
-      "50px",
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    borderRadius:
-      "15px",
-
-    background:
-      "#e8f3fd",
+    width: "50px",
+    height: "50px",
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "15px",
+    background: "#e8f3fd",
   },
 
   messageTitle: {
-    color:
-      "#17324d",
-
-    fontSize:
-      "17px",
-
-    fontWeight:
-      700,
+    color: "#17324d",
+    fontSize: "17px",
+    fontWeight: 700,
   },
 
   messageText: {
-    color:
-      "#718498",
-
-    fontSize:
-      "13px",
+    color: "#718498",
+    fontSize: "13px",
   },
 
   page: {
-    minHeight:
-      "100vh",
-
-    padding:
-      "10px",
-
-    background:
-      "#eef3f8",
-
+    minHeight: "100vh",
+    padding: "10px",
+    background: "#eef3f8",
     fontFamily:
       'Tahoma, "Noto Sans Thai", Arial, sans-serif',
   },
 
   container: {
-    width:
-      "100%",
+    width: "100%",
+    maxWidth: "430px",
+    margin: "0 auto",
+    paddingBottom: "20px",
+  },
 
-    maxWidth:
-      "430px",
-
-    margin:
-      "0 auto",
+  jobCard: {
+    marginBottom: "14px",
   },
 
   statusCard: {
-    marginBottom:
-      "10px",
-
-    padding:
-      "14px",
-
+    marginBottom: "10px",
+    padding: "14px",
     border:
       "1px solid #edf2f6",
-
-    borderRadius:
-      "17px",
-
-    background:
-      "#ffffff",
-
+    borderRadius: "17px",
+    background: "#ffffff",
     boxShadow:
       "0 7px 20px rgba(0,0,0,0.05)",
   },
 
   statusTop: {
-    display:
-      "flex",
-
-    alignItems:
-      "flex-start",
-
+    display: "flex",
+    alignItems: "flex-start",
     justifyContent:
       "space-between",
-
-    gap:
-      "10px",
+    gap: "10px",
   },
 
   reqArea: {
-    minWidth:
-      0,
-
-    flex:
-      1,
-
-    margin:
-      0,
-
-    padding:
-      0,
+    minWidth: 0,
+    flex: 1,
+    margin: 0,
+    padding: 0,
   },
 
   urgencyBadge: {
-    flex:
-      "0 0 auto",
-
-    alignSelf:
-      "flex-start",
-
-    display:
-      "inline-flex",
-
-    alignItems:
-      "center",
-
-    justifyContent:
-      "center",
-
-    gap:
-      "4px",
-
-    minHeight:
-      "31px",
-
-    padding:
-      "5px 9px",
-
-    borderWidth:
-      "1px",
-
-    borderStyle:
-      "solid",
-
-    borderRadius:
-      "999px",
-
-    fontSize:
-      "10px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.2,
-
-    textAlign:
-      "center",
-
-    whiteSpace:
-      "nowrap",
-
-    boxSizing:
-      "border-box",
+    flex: "0 0 auto",
+    alignSelf: "flex-start",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "4px",
+    minHeight: "31px",
+    padding: "5px 9px",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderRadius: "999px",
+    fontSize: "10px",
+    fontWeight: 700,
+    lineHeight: 1.2,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+    boxSizing: "border-box",
   },
 
   reqLabel: {
-    margin:
-      0,
-
-    marginBottom:
-      "3px",
-
-    color:
-      "#7b8ea1",
-
-    fontSize:
-      "11px",
-
-    lineHeight:
-      1.3,
+    margin: 0,
+    marginBottom: "3px",
+    color: "#7b8ea1",
+    fontSize: "11px",
+    lineHeight: 1.3,
   },
 
   reqNo: {
-    margin:
-      0,
-
-    color:
-      "#0d5ca6",
-
-    fontSize:
-      "19px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.3,
-
-    overflowWrap:
-      "anywhere",
+    margin: 0,
+    color: "#0d5ca6",
+    fontSize: "19px",
+    fontWeight: 700,
+    lineHeight: 1.3,
+    overflowWrap: "anywhere",
   },
 
   assignedTime: {
-    marginTop:
-      "6px",
+    marginTop: "6px",
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    color: "#718498",
+    fontSize: "11px",
+    lineHeight: 1.35,
+  },
 
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "5px",
-
-    color:
-      "#718498",
-
-    fontSize:
-      "11px",
-
-    lineHeight:
-      1.35,
+  headJobBadge: {
+    marginTop: "9px",
+    padding:
+      "7px 10px",
+    borderRadius: "9px",
+    color: "#d97820",
+    background: "#fff5e9",
+    fontSize: "11px",
+    fontWeight: 700,
   },
 
   routeCard: {
-    marginBottom:
-      "10px",
-
-    padding:
-      "14px",
-
+    marginBottom: "10px",
+    padding: "14px",
     border:
       "1px solid #edf2f6",
-
-    borderRadius:
-      "17px",
-
-    background:
-      "#ffffff",
-
+    borderRadius: "17px",
+    background: "#ffffff",
     boxShadow:
       "0 7px 20px rgba(0,0,0,0.05)",
   },
 
   routeRow: {
-    minWidth:
-      0,
-
-    display:
-      "flex",
-
-    alignItems:
-      "flex-start",
-
-    gap:
-      "11px",
+    minWidth: 0,
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "11px",
   },
 
   sourceMarker: {
-    width:
-      "14px",
-
-    flex:
-      "0 0 14px",
-
-    position:
-      "relative",
-
-    display:
-      "flex",
-
-    justifyContent:
-      "center",
+    width: "14px",
+    flex: "0 0 14px",
+    position: "relative",
+    display: "flex",
+    justifyContent: "center",
   },
 
   destinationMarker: {
-    width:
-      "14px",
-
-    flex:
-      "0 0 14px",
-
-    display:
-      "flex",
-
-    justifyContent:
-      "center",
+    width: "14px",
+    flex: "0 0 14px",
+    display: "flex",
+    justifyContent: "center",
   },
 
   sourceDot: {
-    width:
-      "9px",
-
-    height:
-      "9px",
-
-    marginTop:
-      "5px",
-
-    zIndex:
-      2,
-
-    borderRadius:
-      "50%",
-
-    background:
-      "#2786d8",
-
+    width: "9px",
+    height: "9px",
+    marginTop: "5px",
+    zIndex: 2,
+    borderRadius: "50%",
+    background: "#2786d8",
     boxShadow:
       "0 0 0 3px #dfefff",
   },
 
   destinationDot: {
-    width:
-      "9px",
-
-    height:
-      "9px",
-
-    marginTop:
-      "5px",
-
-    borderRadius:
-      "50%",
-
-    background:
-      "#2eaa68",
-
+    width: "9px",
+    height: "9px",
+    marginTop: "5px",
+    borderRadius: "50%",
+    background: "#2eaa68",
     boxShadow:
       "0 0 0 3px #e0f4e8",
   },
 
   routeLine: {
-    width:
-      "2px",
-
-    height:
-      "48px",
-
-    position:
-      "absolute",
-
-    top:
-      "13px",
-
-    background:
-      "#ccd9e5",
+    width: "2px",
+    height: "48px",
+    position: "absolute",
+    top: "13px",
+    background: "#ccd9e5",
   },
 
   routeContent: {
-    minWidth:
-      0,
-
-    flex:
-      1,
-
-    paddingBottom:
-      "16px",
+    minWidth: 0,
+    flex: 1,
+    paddingBottom: "16px",
   },
 
   routeContentLast: {
-    minWidth:
-      0,
-
-    flex:
-      1,
+    minWidth: 0,
+    flex: 1,
   },
 
   sourceLabel: {
-    marginBottom:
-      "4px",
-
-    color:
-      "#2475bd",
-
-    fontSize:
-      "11px",
+    marginBottom: "4px",
+    color: "#2475bd",
+    fontSize: "11px",
   },
 
   destinationLabel: {
-    marginBottom:
-      "4px",
-
-    color:
-      "#2c9b61",
-
-    fontSize:
-      "11px",
+    marginBottom: "4px",
+    color: "#2c9b61",
+    fontSize: "11px",
   },
 
   routeValue: {
-    minWidth:
-      0,
-
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "8px",
-
-    color:
-      "#17324d",
-
-    fontSize:
-      "15px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.4,
-
-    overflowWrap:
-      "anywhere",
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#17324d",
+    fontSize: "15px",
+    fontWeight: 700,
+    lineHeight: 1.4,
+    overflowWrap: "anywhere",
   },
 
   detailCard: {
-    padding:
-      "10px",
-
+    marginBottom: "10px",
+    padding: "10px",
     border:
       "1px solid #edf2f6",
-
-    borderRadius:
-      "17px",
-
-    background:
-      "#ffffff",
-
+    borderRadius: "17px",
+    background: "#ffffff",
     boxShadow:
       "0 7px 20px rgba(0,0,0,0.05)",
   },
 
   detailGrid: {
-    display:
-      "grid",
-
+    display: "grid",
     gridTemplateColumns:
       "repeat(2, minmax(0, 1fr))",
-
-    gap:
-      "9px",
+    gap: "9px",
   },
 
   detailItem: {
-    minWidth:
-      0,
-
-    padding:
-      "11px",
-
-    display:
-      "flex",
-
-    alignItems:
-      "center",
-
-    gap:
-      "10px",
-
+    minWidth: 0,
+    padding: "11px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
     border:
       "1px solid #e5edf5",
-
-    borderRadius:
-      "12px",
-
-    background:
-      "#f8fbfe",
+    borderRadius: "12px",
+    background: "#f8fbfe",
   },
 
   detailItemFull: {
-    gridColumn:
-      "1 / -1",
+    gridColumn: "1 / -1",
   },
 
   detailIcon: {
-    width:
-      "34px",
-
-    height:
-      "34px",
-
-    flex:
-      "0 0 34px",
-
-    display:
-      "grid",
-
-    placeItems:
-      "center",
-
-    borderRadius:
-      "10px",
-
-    background:
-      "#e8f3fd",
+    width: "34px",
+    height: "34px",
+    flex: "0 0 34px",
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "10px",
+    background: "#e8f3fd",
   },
 
   detailText: {
-    minWidth:
-      0,
-
-    flex:
-      1,
+    minWidth: 0,
+    flex: 1,
   },
 
   detailLabel: {
-    marginBottom:
-      "3px",
-
-    color:
-      "#7b8ea1",
-
-    fontSize:
-      "10px",
+    marginBottom: "3px",
+    color: "#7b8ea1",
+    fontSize: "10px",
   },
 
   detailValue: {
-    color:
-      "#17324d",
-
-    fontSize:
-      "14px",
-
-    fontWeight:
-      700,
-
-    lineHeight:
-      1.4,
-
-    overflowWrap:
-      "anywhere",
+    color: "#17324d",
+    fontSize: "14px",
+    fontWeight: 700,
+    lineHeight: 1.4,
+    overflowWrap: "anywhere",
   },
 
-  bottomSpacer: {
-    height:
-      "84px",
-  },
-
-  bottomBar: {
-    width:
-      "min(410px, calc(100% - 20px))",
-
-    position:
-      "fixed",
-
-    left:
-      "50%",
-
-    bottom:
-      0,
-
-    zIndex:
-      20,
-
-    transform:
-      "translateX(-50%)",
-
-    padding:
-      "10px 10px calc(10px + env(safe-area-inset-bottom))",
-
-    display:
-      "grid",
-
+  jobActionBar: {
+    padding: "10px",
+    display: "grid",
     gridTemplateColumns:
       "1fr 1.35fr",
+    gap: "9px",
+    borderRadius: "17px",
+    background: "#ffffff",
+    boxShadow:
+      "0 7px 20px rgba(0,0,0,0.05)",
+  },
 
-    gap:
-      "9px",
-
-    background:
-      "rgba(238,243,248,0.94)",
-
-    backdropFilter:
-      "blur(10px)",
-
-    boxSizing:
-      "border-box",
+  headFinishButton: {
+    gridColumn: "1 / -1",
   },
 
   cancelButton: {
-    minHeight:
-      "49px",
-
-    padding:
-      "10px",
-
-    display:
-      "inline-flex",
-
-    alignItems:
-      "center",
-
-    justifyContent:
-      "center",
-
-    gap:
-      "7px",
-
+    minHeight: "49px",
+    padding: "10px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "7px",
     border:
       "1px solid #e6a9a9",
-
-    borderRadius:
-      "13px",
-
-    color:
-      "#bd3333",
-
-    background:
-      "#ffffff",
-
-    fontSize:
-      "14px",
-
-    fontWeight:
-      700,
-
-    cursor:
-      "pointer",
+    borderRadius: "13px",
+    color: "#bd3333",
+    background: "#ffffff",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 
   finishButton: {
-    minHeight:
-      "49px",
-
-    padding:
-      "10px",
-
-    display:
-      "inline-flex",
-
-    alignItems:
-      "center",
-
-    justifyContent:
-      "center",
-
-    gap:
-      "7px",
-
-    border:
-      0,
-
-    borderRadius:
-      "13px",
-
-    color:
-      "#ffffff",
-
-    background:
-      "#23885a",
-
+    minHeight: "49px",
+    padding: "10px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "7px",
+    border: 0,
+    borderRadius: "13px",
+    color: "#ffffff",
+    background: "#23885a",
     boxShadow:
       "0 7px 17px rgba(35,136,90,0.25)",
-
-    fontSize:
-      "14px",
-
-    fontWeight:
-      700,
-
-    cursor:
-      "pointer",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 
   disabledButton: {
-    opacity:
-      0.55,
-
-    cursor:
-      "not-allowed",
+    opacity: 0.55,
+    cursor: "not-allowed",
   },
 };

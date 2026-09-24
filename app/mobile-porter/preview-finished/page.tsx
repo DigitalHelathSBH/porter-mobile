@@ -2,11 +2,6 @@ import PorterDashboard from "@/components/porter-dashboard";
 
 import type { PorterJob } from "@/types/porter";
 
-/**
- * ข้อมูลจำลองสำหรับดูหน้าสถานะเสร็จสิ้น
- *
- * ไม่มีการเชื่อมต่อหรือแก้ไขฐานข้อมูล
- */
 const mockFinishedJobs: PorterJob[] = [
   {
     reqNo: "Req20260805-501",
@@ -29,6 +24,8 @@ const mockFinishedJobs: PorterJob[] = [
     cradleStaffNo: "L0281",
     assignedAt: "05/08/2569 08:20:00",
     finishedAt: "05/08/2569 08:42:15",
+    porter: "นางสาวพรกมล บุษบากรกุล",
+    porterType: "OPD",
   },
 
   {
@@ -52,6 +49,8 @@ const mockFinishedJobs: PorterJob[] = [
     cradleStaffNo: "L0281",
     assignedAt: "05/08/2569 10:08:00",
     finishedAt: "05/08/2569 10:17:48",
+    porter: "นางสาวพรกมล บุษบากรกุล",
+    porterType: "OPD",
   },
 
   {
@@ -75,6 +74,8 @@ const mockFinishedJobs: PorterJob[] = [
     cradleStaffNo: "L0281",
     assignedAt: "05/08/2569 13:26:00",
     finishedAt: "05/08/2569 13:33:09",
+    porter: "นางสาวพรกมล บุษบากรกุล",
+    porterType: "ER",
   },
 ];
 
@@ -82,7 +83,7 @@ export default function PreviewFinishedPage() {
   return (
     <PorterDashboard
       staffNo="L0281"
-      staffName="นางสาวพรหมล บุษบากรกุล"
+      staffName="นางสาวพรกมล บุษบากรกุล"
       jobs={mockFinishedJobs}
       viewMode="finished"
     />

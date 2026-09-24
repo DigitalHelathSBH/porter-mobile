@@ -41,6 +41,7 @@ function getErrorStatus(
     case "STAFF_HAS_ACTIVE_JOB":
     case "NOT_OWNER":
     case "NOT_ACTIVE":
+    case "HEAD_JOB_CANNOT_CANCEL":
       return 409;
 
     default:

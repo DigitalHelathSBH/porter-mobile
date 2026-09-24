@@ -18,6 +18,7 @@ import type {
 
 type Props = {
   reqNo: string;
+  backView?: string;
 };
 
 type JobDetailApiResponse = {
@@ -32,6 +33,7 @@ type JobDetailApiResponse = {
 
 export default function PorterDetailLoader({
   reqNo,
+  backView,
 }: Props) {
   const router =
     useRouter();
@@ -250,48 +252,43 @@ export default function PorterDetailLoader({
   // =========================
   // Loading
   // =========================
-  if (
-    isLoading
-  ) {
-    return (
-      <main
-        style={{
-          minHeight:
-            "100vh",
-
-          display:
-            "grid",
-
-          placeItems:
-            "center",
-
-          padding:
-            "20px",
-
-          background:
-            "#eef3f8",
-
-          fontFamily:
-            'Tahoma, "Noto Sans Thai", Arial, sans-serif',
-        }}
-      >
+  if (isLoading) {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        padding: "10px",
+        background: "#eef3f8",
+        fontFamily: 'Tahoma, "Noto Sans Thai", Arial, sans-serif',
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "430px", margin: "0 auto" }}>
         <div
           style={{
-            color:
-              "#60758a",
-
-            fontSize:
-              "14px",
-
-            fontWeight:
-              700,
+            marginTop: "60px",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
-          กำลังโหลดรายละเอียดงาน...
+          <div
+            style={{
+              width: "26px",
+              height: "26px",
+              border: "3px solid #d7e6f3",
+              borderTopColor: "#176fca",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+            }}
+          />
         </div>
-      </main>
-    );
-  }
+
+        <style>
+          {`@keyframes spin { to { transform: rotate(360deg); } }`}
+        </style>
+      </div>
+    </main>
+  );
+}
 
   // =========================
   // Error / ไม่พบงาน
@@ -438,10 +435,11 @@ export default function PorterDetailLoader({
   // แสดงรายละเอียดงานจริง
   // =========================
   return (
-    <PorterDetail
-      job={job}
-      staffNo={staffNo}
-      staffName={staffName}
-    />
+  <PorterDetail
+    job={job}
+    staffNo={staffNo}
+    staffName={staffName}
+    backView={backView}
+  />
   );
 }

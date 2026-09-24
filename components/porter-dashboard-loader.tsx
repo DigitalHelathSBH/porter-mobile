@@ -6,10 +6,6 @@ import {
   useState,
 } from "react";
 
-import {
-  useRouter,
-} from "next/navigation";
-
 import PorterDashboard
   from "@/components/porter-dashboard";
 
@@ -18,7 +14,8 @@ import type {
 } from "@/types/porter";
 
 type DashboardView =
-  | "active"
+  | "ศูนย์เปล ER"
+  | "ศูนย์เปล OPD"
   | "finished";
 
 type Props = {
@@ -28,62 +25,67 @@ type Props = {
 type DashboardApiResponse = {
   success?: boolean;
   message?: string;
-
   staffNo?: string;
   staffName?: string;
-
+  currentAssignment?: unknown | null;
   jobs?: PorterJob[];
+  alertJobs?: PorterJob[];
 };
+
+const DASHBOARD_LOADED_KEY = "porterDashboardLoadedOnce";
+
+function hasDashboardLoadedBefore(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return (
+      window.sessionStorage.getItem(DASHBOARD_LOADED_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markDashboardLoaded(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(DASHBOARD_LOADED_KEY, "1");
+  } catch {
+    // ไม่ต้องทำอะไร ถ้า sessionStorage ใช้ไม่ได้
+  }
+}
 
 export default function PorterDashboardLoader({
   viewMode,
 }: Props) {
-  const router =
-    useRouter();
+  const [isLoading, setIsLoading] =
+    useState(true);
 
-  const [
-    isLoading,
-    setIsLoading,
-  ] = useState(true);
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
+  const [staffNo, setStaffNo] =
+    useState("");
 
-  const [
-    staffNo,
-    setStaffNo,
-  ] = useState("");
+  const [staffName, setStaffName] =
+    useState("");
 
-  const [
-    staffName,
-    setStaffName,
-  ] = useState("");
+  const [jobs, setJobs] =
+    useState<PorterJob[]>([]);
 
-  const [
-    jobs,
-    setJobs,
-  ] = useState<PorterJob[]>([]);
+  const [alertJobs, setAlertJobs] =
+    useState<PorterJob[]>([]);
 
-  /**
-   * โหลดข้อมูล Dashboard
-   *
-   * ใช้ POST เท่านั้น
-   *
-   * ไม่ส่ง staffNo จาก Client
-   * เพราะ API จะอ่าน porterStaffNo
-   * จาก HttpOnly Cookie เอง
-   *
-   * silent = true
-   * จะโหลดข้อมูลใหม่โดยไม่แสดงหน้า
-   * "กำลังโหลดข้อมูล..."
-   */
   const loadDashboard =
     useCallback(
       async (
         silent = false,
-      ) => {
+      ): Promise<void> => {
         try {
           if (!silent) {
             setIsLoading(true);
@@ -99,19 +101,23 @@ export default function PorterDashboardLoader({
 
                 cache: "no-store",
 
+                credentials:
+                  "same-origin",
+
                 headers: {
                   "Content-Type":
                     "application/json",
 
                   "Cache-Control":
                     "no-cache",
+
+                  "Pragma":
+                    "no-cache",
                 },
 
-                body:
-                  JSON.stringify({
-                    view:
-                      viewMode,
-                  }),
+                body: JSON.stringify({
+                  view: viewMode,
+                }),
               },
             );
 
@@ -129,67 +135,107 @@ export default function PorterDashboardLoader({
             );
           }
 
-          /**
+          /*
            * Session หมด
-           * หรือไม่ได้ Login
            */
           if (
             response.status === 401
           ) {
-            router.replace(
-              "/mobile-porter/login",
-            );
+            window.location.href =
+              "/mobile-porter/login";
 
             return;
           }
 
-          /**
+          /*
            * API Error
            */
           if (
-            !response.ok
-            || !result.success
+            !response.ok ||
+            !result.success
           ) {
             throw new Error(
-              result.message
-              ?? "โหลดข้อมูลไม่สำเร็จ",
+              result.message ??
+                "โหลดข้อมูลไม่สำเร็จ",
             );
           }
 
-          /**
-           * อัปเดตข้อมูลพนักงาน
+          /*
+           * สำคัญ:
+           *
+           * ไม่ Redirect ไป Current
+           * จาก currentAssignment ตรงนี้
+           *
+           * เพราะงานหัวหน้าต้องผ่าน
+           * PorterHeadJobMonitor ก่อน
+           *
+           * Monitor จะเป็นตัวจัดการ:
+           *
+           * ไม่มีงาน Active
+           * -> Alert
+           * -> Activate
+           * -> Current
+           *
+           * มีงาน Active อยู่
+           * -> Alert อย่างเดียว
+           * -> ไม่เปลี่ยนหน้า
            */
-          setStaffNo(
+
+          /*
+           * พนักงาน
+           */
+          const nextStaffNo =
             String(
-              result.staffNo
-              ?? "",
-            ).trim(),
+              result.staffNo ??
+                "",
+            ).trim();
+
+          const nextStaffName =
+            String(
+              result.staffName ??
+                "",
+            ).trim();
+
+          setStaffNo(
+            nextStaffNo,
           );
 
           setStaffName(
-            String(
-              result.staffName
-              ?? "",
-            ).trim(),
+            nextStaffName,
           );
 
-          /**
-           * อัปเดตรายการงาน
-           *
-           * ถ้ามีงานใหม่
-           * PorterDashboard จะตรวจจับจาก jobs
-           * และแสดง SweetAlert
-           *
-           * ถ้างานถูกกดรับแล้ว API ส่งกลับมา
-           * ไม่มีงานนั้นแล้ว
-           * รายการจะหายออกจากหน้าจอทันที
+          /*
+           * รายการงาน
            */
-          setJobs(
+          const nextJobs =
             Array.isArray(
               result.jobs,
             )
               ? result.jobs
-              : [],
+              : [];
+
+          setJobs(
+            nextJobs,
+          );
+
+          /*
+           * งานสำหรับแจ้งเตือน
+           *
+           * API สามารถส่ง alertJobs
+           * แยกออกมาจาก jobs ได้
+           *
+           * ถ้า API ยังไม่ได้ส่ง
+           * alertJobs ให้ใช้ jobs แทน
+           */
+          const nextAlertJobs =
+            Array.isArray(
+              result.alertJobs,
+            )
+              ? result.alertJobs
+              : nextJobs;
+
+          setAlertJobs(
+            nextAlertJobs,
           );
         } catch (error) {
           console.error(
@@ -197,15 +243,15 @@ export default function PorterDashboardLoader({
             error,
           );
 
-          /**
-           * ถ้าเป็นการ Refresh อัตโนมัติ
-           * ไม่ให้หน้าจอกระพริบเป็น Error
-           * และไม่ลบข้อมูลเดิมออก
+          /*
+           * Auto Refresh
+           *
+           * ไม่เปลี่ยนหน้าจอเป็น Error
+           * และเก็บข้อมูลเดิมเอาไว้
            */
           if (!silent) {
             setErrorMessage(
-              error
-                instanceof Error
+              error instanceof Error
                 ? error.message
                 : "โหลดข้อมูลไม่สำเร็จ",
             );
@@ -217,52 +263,63 @@ export default function PorterDashboardLoader({
         }
       },
       [
-        router,
         viewMode,
       ],
     );
 
-  /**
-   * โหลดข้อมูลครั้งแรก
-   */
-  useEffect(
-    () => {
-      void loadDashboard();
-    },
-    [
-      loadDashboard,
-    ],
-  );
+  /*
+ * โหลดครั้งแรก
+ *
+ * ครั้งแรกสุดของแอป -> โชว์จอ "กำลังโหลด"
+ * ครั้งต่อๆ ไป (สลับแท็บ) -> โหลดเงียบๆ ไม่ขึ้นจอ loading
+ */
+useEffect(
+  () => {
+    const isFirstLoad = !hasDashboardLoadedBefore();
+    markDashboardLoaded();
 
-  /**
-   * Refresh ข้อมูลอัตโนมัติทุก 30 วินาที
-   *
-   * ไม่ใช้ router.refresh()
-   *
-   * เพราะข้อมูล Dashboard ถูกโหลดผ่าน
-   * Client fetch POST API
+    if (!isFirstLoad) {
+      /*
+       * เคยโหลดมาก่อนแล้วในเซสชันนี้
+       * ข้ามจอ loading เต็มจอทันที
+       */
+      setIsLoading(false);
+    }
+
+    void loadDashboard(!isFirstLoad);
+  },
+  [
+    loadDashboard,
+  ],
+);
+
+  /*
+   * Auto Refresh ทุก 30 วินาที
    */
   useEffect(
     () => {
-      let isDisposed = false;
+      let isDisposed =
+        false;
 
       async function refreshDashboard(): Promise<void> {
         if (isDisposed) {
           return;
         }
 
-        /**
+        /*
          * ถ้าไม่ได้เปิดหน้าอยู่
          * ไม่ต้องยิง API
          */
         if (
-          document.visibilityState
-          !== "visible"
+          document.visibilityState !==
+          "visible"
         ) {
           return;
         }
 
-        await loadDashboard(true);
+        await loadDashboard(
+          true,
+        );
       }
 
       const timer =
@@ -273,14 +330,14 @@ export default function PorterDashboardLoader({
           30_000,
         );
 
-      /**
-       * ถ้ากลับมาเปิดหน้าอีกครั้ง
-       * ให้โหลดข้อมูลทันที
+      /*
+       * กลับมาเปิดหน้า
+       * โหลดข้อมูลทันที
        */
       function handleVisibilityChange(): void {
         if (
-          document.visibilityState
-          === "visible"
+          document.visibilityState ===
+          "visible"
         ) {
           void refreshDashboard();
         }
@@ -309,7 +366,7 @@ export default function PorterDashboardLoader({
     ],
   );
 
-  /**
+  /*
    * Loading ครั้งแรก
    */
   if (isLoading) {
@@ -353,7 +410,7 @@ export default function PorterDashboardLoader({
     );
   }
 
-  /**
+  /*
    * Error
    */
   if (errorMessage) {
@@ -483,26 +540,16 @@ export default function PorterDashboardLoader({
     );
   }
 
-  /**
-   * แสดง Dashboard
+  /*
+   * Dashboard
    */
   return (
     <PorterDashboard
-      staffNo={
-        staffNo
-      }
-
-      staffName={
-        staffName
-      }
-
-      jobs={
-        jobs
-      }
-
-      viewMode={
-        viewMode
-      }
+      staffNo={staffNo}
+      staffName={staffName}
+      jobs={jobs}
+      alertJobs={alertJobs}
+      viewMode={viewMode}
     />
   );
 }

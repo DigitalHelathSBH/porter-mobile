@@ -40,6 +40,7 @@ type Props = {
   job: PorterJob;
   staffNo: string;
   staffName: string;
+  backView?: string;
 };
 
 function getUrgencyStyle(
@@ -292,6 +293,7 @@ export default function PorterDetail({
   job,
   staffNo,
   staffName,
+  backView,
 }: Props) {
   const router =
     useRouter();
@@ -358,9 +360,6 @@ export default function PorterDetail({
             assignment,
           );
 
-          // =========================
-          // ไม่ส่ง userid ใน URL
-          // =========================
           router.replace(
             "/mobile-porter/current",
           );
@@ -406,27 +405,39 @@ export default function PorterDetail({
     staffNo,
   ]);
 
+  /*
+   * PorterLiveAssignment ใช้ jobs
+   * ไม่ใช่ job
+   *
+   * ถ้ามีงานปัจจุบันอยู่ใน jobs
+   * และ ReqNo ตรงกับงานที่กำลังดู
+   * ถือว่าเป็นงานเดียวกัน
+   */
   const isThisJobActive =
-    activeAssignment
-      ?.job
-      .reqNo
-    === job.reqNo;
+    activeAssignment?.job?.reqNo === job.reqNo;
 
   const hasOtherActiveJob =
-    Boolean(
-      activeAssignment,
-    )
-    && !isThisJobActive;
+    Boolean(activeAssignment?.job) &&
+    !isThisJobActive;
+
+  const currentActiveJob =
+    activeAssignment?.job ?? null;
 
   // =========================
   // กลับหน้าหลัก
   // ไม่ส่ง userid ใน URL
   // =========================
   function handleBack(): void {
-    router.push(
-      "/mobile-porter",
-    );
-  }
+  console.log("backView value:", backView);
+
+  const target = backView
+    ? `/mobile-porter?view=${encodeURIComponent(backView)}`
+    : "/mobile-porter";
+
+  console.log("navigating to:", target);
+
+  router.push(target);
+}
 
   // =========================
   // ไปหน้างานปัจจุบัน
@@ -544,9 +555,6 @@ export default function PorterDetail({
               true,
           });
 
-          // =========================
-          // ไม่ส่ง userid
-          // =========================
           router.replace(
             "/mobile-porter",
           );
@@ -568,6 +576,9 @@ export default function PorterDetail({
             result.assignment,
           );
 
+          const currentJob =
+            result.assignment.job;
+
           await Swal.fire({
             position:
               "top-end",
@@ -579,9 +590,9 @@ export default function PorterDetail({
               "warning",
 
             title:
-              `มีงาน ${
-                result.assignment.job.reqNo
-              } กำลังดำเนินการอยู่`,
+              currentJob?.reqNo
+                ? `มีงาน ${currentJob.reqNo} กำลังดำเนินการอยู่`
+                : "มีงานกำลังดำเนินการอยู่",
 
             showConfirmButton:
               false,
@@ -734,10 +745,6 @@ export default function PorterDetail({
           styles.container
         }
       >
-        {/*
-          Header กลาง
-          หน้านี้ไม่มี showLogout
-        */}
         <PorterHeader
           staffNo={
             staffNo
@@ -784,9 +791,8 @@ export default function PorterDetail({
                 คุณกำลังทำงาน{" "}
                 <strong>
                   {
-                    activeAssignment
-                      ?.job
-                      .reqNo
+                    currentActiveJob?.reqNo
+                    || "-"
                   }
                 </strong>
                 {" "}อยู่
@@ -1064,7 +1070,7 @@ export default function PorterDetail({
                 />
               }
             />
-            
+
             <DetailItem
               label="หมายเหตุ"
               value={

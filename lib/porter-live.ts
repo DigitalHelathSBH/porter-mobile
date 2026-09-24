@@ -6,6 +6,12 @@ export type PorterLiveAssignment = {
   staffNo: string;
   staffName: string;
   assignedAt: string;
+  jobs: PorterJob[];
+
+  /**
+   * เก็บไว้เพื่อรองรับโค้ดเก่าที่เรียก assignment.job
+   * โดย job จะเป็นงานแรกใน jobs
+   */
   job: PorterJob;
 };
 
@@ -18,6 +24,7 @@ export type PorterLiveErrorCode =
   | "NOT_ACTIVE"
   | "INVALID_INPUT"
   | "DATABASE_ERROR"
+  | "HEAD_JOB_CANNOT_CANCEL"
   | "REQUEST_FAILED";
 
 export type PorterLiveActionResult =
@@ -32,11 +39,27 @@ export type PorterLiveActionResult =
       assignment?: PorterLiveAssignment;
     };
 
+type ApiAssignment = {
+  staffNo?: string;
+  staffName?: string;
+  assignedAt?: string;
+
+  /**
+   * รูปแบบใหม่
+   */
+  jobs?: PorterJob[];
+
+  /**
+   * รูปแบบเก่า
+   */
+  job?: PorterJob;
+};
+
 type ApiBody = {
   success?: boolean;
   code?: string;
   message?: string;
-  assignment?: PorterLiveAssignment | null;
+  assignment?: ApiAssignment | null;
 };
 
 async function readJson(
@@ -72,11 +95,97 @@ function normalizeErrorCode(
     case "NOT_ACTIVE":
     case "INVALID_INPUT":
     case "DATABASE_ERROR":
+    case "HEAD_JOB_CANNOT_CANCEL":
       return code;
 
     default:
       return "REQUEST_FAILED";
   }
+}
+
+/**
+ * แปลง assignment จาก API
+ *
+ * รองรับทั้ง
+ *
+ * แบบเก่า:
+ * {
+ *   job: {...}
+ * }
+ *
+ * และแบบใหม่:
+ * {
+ *   jobs: [{...}, {...}]
+ * }
+ */
+function normalizeAssignment(
+  assignment:
+    | ApiAssignment
+    | null
+    | undefined,
+): PorterLiveAssignment | null {
+  if (!assignment) {
+    return null;
+  }
+
+  let jobs: PorterJob[] = [];
+
+  if (
+    Array.isArray(
+      assignment.jobs,
+    )
+  ) {
+    jobs = assignment.jobs.filter(
+      (
+        item,
+      ): item is PorterJob =>
+        !!item &&
+        typeof item.reqNo ===
+          "string",
+    );
+  }
+
+  if (
+    jobs.length === 0 &&
+    assignment.job
+  ) {
+    jobs = [
+      assignment.job,
+    ];
+  }
+
+  if (jobs.length === 0) {
+    return null;
+  }
+
+  return {
+    staffNo:
+      String(
+        assignment.staffNo ??
+          "",
+      ).trim(),
+
+    staffName:
+      String(
+        assignment.staffName ??
+          "",
+      ).trim(),
+
+    assignedAt:
+      String(
+        assignment.assignedAt ??
+          jobs[0]?.assignedAt ??
+          "",
+      ).trim(),
+
+    jobs,
+
+    /**
+     * รองรับโค้ดเก่า
+     * assignment.job
+     */
+    job: jobs[0],
+  };
 }
 
 /**
@@ -129,13 +238,14 @@ export async function getCurrentPorterAssignment(
 
   if (!response.ok) {
     throw new Error(
-      body.message
-        ?? "โหลดงานปัจจุบันไม่สำเร็จ",
+      body.message ??
+        "โหลดงานปัจจุบันไม่สำเร็จ",
     );
   }
 
-  return body.assignment
-    ?? null;
+  return normalizeAssignment(
+    body.assignment,
+  );
 }
 
 /**
@@ -180,17 +290,22 @@ export async function acceptPorterJob(
         response,
       );
 
+    const assignment =
+      normalizeAssignment(
+        body.assignment,
+      );
+
     if (
-      response.ok
-      && body.success
+      response.ok &&
+      body.success
     ) {
       return {
         success:
           true,
 
         assignment:
-          body.assignment
-          ?? undefined,
+          assignment ??
+          undefined,
       };
     }
 
@@ -204,12 +319,12 @@ export async function acceptPorterJob(
         ),
 
       message:
-        body.message
-        ?? "รับงานไม่สำเร็จ",
+        body.message ??
+        "รับงานไม่สำเร็จ",
 
       assignment:
-        body.assignment
-        ?? undefined,
+        assignment ??
+        undefined,
     };
   } catch (error) {
     console.error(
@@ -272,13 +387,22 @@ export async function cancelPorterJob(
         response,
       );
 
+    const assignment =
+      normalizeAssignment(
+        body.assignment,
+      );
+
     if (
-      response.ok
-      && body.success
+      response.ok &&
+      body.success
     ) {
       return {
         success:
           true,
+
+        assignment:
+          assignment ??
+          undefined,
       };
     }
 
@@ -292,12 +416,12 @@ export async function cancelPorterJob(
         ),
 
       message:
-        body.message
-        ?? "ยกเลิกงานไม่สำเร็จ",
+        body.message ??
+        "ยกเลิกงานไม่สำเร็จ",
 
       assignment:
-        body.assignment
-        ?? undefined,
+        assignment ??
+        undefined,
     };
   } catch (error) {
     console.error(
@@ -360,13 +484,22 @@ export async function finishPorterJob(
         response,
       );
 
+    const assignment =
+      normalizeAssignment(
+        body.assignment,
+      );
+
     if (
-      response.ok
-      && body.success
+      response.ok &&
+      body.success
     ) {
       return {
         success:
           true,
+
+        assignment:
+          assignment ??
+          undefined,
       };
     }
 
@@ -380,12 +513,12 @@ export async function finishPorterJob(
         ),
 
       message:
-        body.message
-        ?? "บันทึกเสร็จสิ้นงานไม่สำเร็จ",
+        body.message ??
+        "บันทึกเสร็จสิ้นงานไม่สำเร็จ",
 
       assignment:
-        body.assignment
-        ?? undefined,
+        assignment ??
+        undefined,
     };
   } catch (error) {
     console.error(

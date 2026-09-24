@@ -7,9 +7,11 @@ import {
 } from "next/headers";
 
 import {
+  getCurrentPorterAssignment,
   getFinishedJobs,
   getStaffDisplayName,
   getWaitingJobs,
+  type PorterCenter,
 } from "@/lib/porter";
 
 export const runtime =
@@ -25,23 +27,10 @@ type RequestBody = {
   view?: unknown;
 };
 
-/**
- * POST /api/porter/dashboard
- *
- * ใช้สำหรับโหลดข้อมูลหน้า Dashboard
- *
- * - ไม่มี GET
- * - อ่าน staffNo จาก Cookie
- * - ไม่รับ staffNo จาก URL
- * - ไม่รับ staffNo จาก Client
- */
 export async function POST(
   request: Request,
 ) {
   try {
-    // =========================
-    // อ่าน Cookie
-    // =========================
     const cookieStore =
       await cookies();
 
@@ -52,9 +41,6 @@ export async function POST(
         )?.value ?? "",
       ).trim();
 
-    // =========================
-    // ไม่มี Login session
-    // =========================
     if (!staffNo) {
       return NextResponse.json(
         {
@@ -64,7 +50,6 @@ export async function POST(
         },
         {
           status: 401,
-
           headers: {
             "Cache-Control":
               "no-store",
@@ -73,9 +58,6 @@ export async function POST(
       );
     }
 
-    // =========================
-    // อ่าน Request Body
-    // =========================
     let body: RequestBody = {};
 
     try {
@@ -87,52 +69,74 @@ export async function POST(
       body = {};
     }
 
-    // =========================
-    // active / finished
-    // =========================
-    const viewMode =
+    const requestedView =
       String(
-        body.view ?? "active",
-      ).trim() === "finished"
-        ? "finished"
-        : "active";
+        body.view ?? "ศูนย์เปล ER",
+      ).trim();
 
-    // =========================
-    // โหลดชื่อพนักงาน
-    // และรายการงาน
-    // =========================
+    const viewMode:
+      | PorterCenter
+      | "finished" =
+      requestedView === "ศูนย์เปล OPD"
+        ? "ศูนย์เปล OPD"
+        : requestedView === "finished"
+          ? "finished"
+          : "ศูนย์เปล ER";
+
     const [
-      staffName,
-      jobs,
-    ] =
-      await Promise.all([
+        staffName,
+        currentAssignment,
+        erJobs,
+        opdJobs,
+        finishedJobs,
+      ] = await Promise.all([
         getStaffDisplayName(
           staffNo,
+        ),
+
+        getCurrentPorterAssignment(
+          staffNo,
+        ),
+
+        getWaitingJobs(
+          "ศูนย์เปล ER",
+        ),
+
+        getWaitingJobs(
+          "ศูนย์เปล OPD",
         ),
 
         viewMode === "finished"
           ? getFinishedJobs(
               staffNo,
             )
-          : getWaitingJobs(),
+          : Promise.resolve([]),
       ]);
 
-    // =========================
-    // สำเร็จ
-    // =========================
+    const alertJobs = [
+      ...erJobs,
+      ...opdJobs,
+    ];
+
+    const jobs =
+      viewMode === "finished"
+        ? finishedJobs
+        : viewMode === "ศูนย์เปล OPD"
+          ? opdJobs
+          : erJobs;
+
     return NextResponse.json(
       {
         success: true,
-
         staffNo,
         staffName,
+        currentAssignment,
         jobs,
-
+        alertJobs,
         viewMode,
       },
       {
         status: 200,
-
         headers: {
           "Cache-Control":
             "no-store, no-cache, must-revalidate",
@@ -145,19 +149,14 @@ export async function POST(
       error,
     );
 
-    // =========================
-    // Database / Server Error
-    // =========================
     return NextResponse.json(
       {
         success: false,
-
         message:
           "โหลดข้อมูลรายการงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
       },
       {
         status: 500,
-
         headers: {
           "Cache-Control":
             "no-store",

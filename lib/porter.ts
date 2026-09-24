@@ -10,6 +10,9 @@ import type { PorterJob } from "@/types/porter";
  */
 type PorterDbRow = {
   ReqNo?: unknown;
+  Porter?: unknown;
+  IsHeadJob?: unknown;
+  PorterWard?: unknown;
   LocSource?: unknown;
   LocDest?: unknown;
   LocAct?: unknown;
@@ -18,8 +21,6 @@ type PorterDbRow = {
   FastTrack?: unknown;
   Remark?: unknown;
   Equipment?: unknown;
-
-  // เพิ่ม Detail
   Detail?: unknown;
 
   CreatedAt?: Date | string | null;
@@ -67,8 +68,8 @@ function getText(
   fallback = "-",
 ): string {
   if (
-    value === null
-    || value === undefined
+    value === null ||
+    value === undefined
   ) {
     return fallback;
   }
@@ -85,8 +86,8 @@ function getNullableText(
   value: unknown,
 ): string | null {
   if (
-    value === null
-    || value === undefined
+    value === null ||
+    value === undefined
   ) {
     return null;
   }
@@ -94,6 +95,32 @@ function getNullableText(
   const text = String(value).trim();
 
   return text || null;
+}
+
+/**
+ * แปลงค่าเป็น Boolean
+ */
+function getBoolean(
+  value: unknown,
+): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  const text = String(
+    value ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    text === "1" ||
+    text === "true"
+  );
 }
 
 /**
@@ -127,10 +154,6 @@ function parseDate(
  *
  * ตัวอย่าง:
  * 6 สิงหาคม 2569 10:39
- *
- * หมายเหตุ:
- * ใช้ UTC getter เพื่อป้องกันเวลาจาก SQL Server
- * ถูกบวกเพิ่มอีก 7 ชั่วโมง
  */
 function formatThaiDateTime(
   value: Date | string | null | undefined,
@@ -176,8 +199,8 @@ function formatThaiDateTime(
   ).padStart(2, "0");
 
   return (
-    `${day} ${month} ${year} `
-    + `${hour}:${minute}`
+    `${day} ${month} ${year} ` +
+    `${hour}:${minute}`
   );
 }
 
@@ -220,8 +243,8 @@ function formatDateTime(
   ).padStart(2, "0");
 
   return (
-    `${day}/${month}/${year} `
-    + `${hour}:${minute}:${second}`
+    `${day}/${month}/${year} ` +
+    `${hour}:${minute}:${second}`
   );
 }
 
@@ -252,6 +275,37 @@ function formatDateTimeShort(
 }
 
 /**
+ * แปลงประเภทศูนย์เปล
+ *
+ * porter = 1
+ *   = OPD
+ *
+ * porter = 2
+ *   = ER
+ *
+ * porter = 4
+ *   = ER
+ *   ยกเว้น Ward 114 = OPD
+ */
+function getPorterType(
+  porter: string,
+  ward: string,
+): "ER" | "OPD" {
+  if (porter === "2") {
+    return "ER";
+  }
+
+  if (
+    porter === "4" &&
+    ward !== "114"
+  ) {
+    return "ER";
+  }
+
+  return "OPD";
+}
+
+/**
  * แปลงข้อมูลจาก SQL Server เป็น PorterJob
  */
 function mapPorterJob(
@@ -261,6 +315,24 @@ function mapPorterJob(
     getText(
       row.FastTrack,
       "0",
+    );
+
+  const porter =
+    getText(
+      row.Porter,
+      "0",
+    );
+
+  const porterWard =
+    getText(
+      row.PorterWard,
+      "",
+    );
+
+  const porterType =
+    getPorterType(
+      porter,
+      porterWard,
     );
 
   return {
@@ -274,6 +346,10 @@ function mapPorterJob(
       getText(
         row.LocSource,
       ),
+
+    porter,
+
+    porterType,
 
     locDest:
       getText(
@@ -312,10 +388,6 @@ function mapPorterJob(
         row.Equipment,
       ),
 
-    /**
-     * Detail จาก CradleMst.Detail
-     * แยกออกจาก Equipment แล้ว
-     */
     detail:
       getText(
         row.Detail,
@@ -369,12 +441,16 @@ function mapPorterJob(
             row.FinishedAt,
           )
         : null,
+
+    isHeadJob:
+      getBoolean(
+        row.IsHeadJob,
+      ),
   };
 }
 
 /**
  * รายชื่อคอลัมน์ที่ใช้ร่วมกัน
- * ระหว่างงานรอรับและงานเสร็จสิ้น
  */
 const porterSelectColumns = `
     C.ReqNo,
@@ -400,6 +476,14 @@ const porterSelectColumns = `
         ),
         '-'
     ) AS LocDest,
+
+    ISNULL(
+        NULLIF(
+            LTRIM(RTRIM(WS.Ward)),
+            ''
+        ),
+        '-'
+    ) AS PorterWard,
 
     ISNULL(
         NULLIF(
@@ -448,10 +532,6 @@ const porterSelectColumns = `
         '-'
     ) AS Remark,
 
-    /*
-     * Equipment แสดงเฉพาะ C.Equipment
-     * ไม่เอา C.Detail มาต่อแล้ว
-     */
     ISNULL(
         NULLIF(
             LTRIM(RTRIM(C.Equipment)),
@@ -460,9 +540,6 @@ const porterSelectColumns = `
         '-'
     ) AS Equipment,
 
-    /*
-     * Detail แยกเป็นอีกช่อง
-     */
     ISNULL(
         NULLIF(
             LTRIM(RTRIM(C.Detail)),
@@ -528,8 +605,58 @@ const porterSelectColumns = `
     ) AS BedNo,
 
     C.CradleStaffNo,
+
     C.Ass_dt AS AssignedAt,
-    C.fin_dt AS FinishedAt
+
+    C.fin_dt AS FinishedAt,
+
+    CASE
+        WHEN LTRIM(
+            RTRIM(
+                ISNULL(
+                    C.crt_user,
+                    ''
+                )
+            )
+        ) =
+        LTRIM(
+            RTRIM(
+                ISNULL(
+                    CASE
+                        WHEN C.Shift = N'เช้า'
+                            THEN H.HeadAMNo
+
+                        WHEN C.Shift = N'บ่าย'
+                            THEN H.HeadPMNo
+
+                        WHEN C.Shift = N'ดึก'
+                            THEN H.HeadNightNo
+
+                        ELSE NULL
+                    END,
+                    ''
+                )
+            )
+        )
+        THEN CAST(1 AS bit)
+
+        ELSE CAST(0 AS bit)
+    END AS IsHeadJob,
+
+    ISNULL(
+        NULLIF(
+            LTRIM(
+                RTRIM(
+                    CONVERT(
+                        varchar(10),
+                        WS.porter
+                    )
+                )
+            ),
+            ''
+        ),
+        '0'
+    ) AS Porter
 `;
 
 /**
@@ -569,8 +696,8 @@ export async function getStaffDisplayName(
     result.recordset[0]?.StaffName;
 
   if (
-    staffName === null
-    || staffName === undefined
+    staffName === null ||
+    staffName === undefined
   ) {
     return "";
   }
@@ -581,12 +708,94 @@ export async function getStaffDisplayName(
 }
 
 /**
+ * ศูนย์เปล
+ */
+export type PorterCenter =
+  | "ศูนย์เปล ER"
+  | "ศูนย์เปล OPD";
+
+/**
  * ดึงรายการงานรอรับของวันปัจจุบัน
  */
-export async function getWaitingJobs(): Promise<
-  PorterJob[]
-> {
+export async function getWaitingJobs(
+  center: PorterCenter,
+): Promise<PorterJob[]> {
   const pool = await getDb();
+
+  const porterCondition =
+    center === "ศูนย์เปล OPD"
+      ? `
+        LTRIM(
+            RTRIM(
+                ISNULL(
+                    CONVERT(
+                        varchar(10),
+                        WS.porter
+                    ),
+                    ''
+                )
+            )
+        ) = '1'
+
+        OR (
+            LTRIM(
+                RTRIM(
+                    ISNULL(
+                        CONVERT(
+                            varchar(10),
+                            WS.porter
+                        ),
+                        ''
+                    )
+                )
+            ) = '4'
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        WS.Ward,
+                        ''
+                    )
+                )
+            ) = '114'
+        )
+      `
+      : `
+        LTRIM(
+            RTRIM(
+                ISNULL(
+                    CONVERT(
+                        varchar(10),
+                        WS.porter
+                    ),
+                    ''
+                )
+            )
+        ) = '2'
+
+        OR (
+            LTRIM(
+                RTRIM(
+                    ISNULL(
+                        CONVERT(
+                            varchar(10),
+                            WS.porter
+                        ),
+                        ''
+                    )
+                )
+            ) = '4'
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        WS.Ward,
+                        ''
+                    )
+                )
+            ) <> '114'
+        )
+      `;
 
   const result = await pool
     .request()
@@ -599,8 +808,24 @@ export async function getWaitingJobs(): Promise<
       LEFT JOIN dbo.wardcode SW
           ON C.LocSource = SW.Code
 
-      WHERE LTRIM(RTRIM(C.Status))
-          = N'ยังไม่ดำเนินการ'
+      LEFT JOIN dbo.WardSection WS
+          ON C.LocSource = WS.Ward
+
+      LEFT JOIN dbo.CradleMstRef_Head H
+          ON H.CradleDate =
+             CONVERT(
+                 date,
+                 C.crt_dt
+             )
+
+      WHERE LTRIM(
+          RTRIM(
+              ISNULL(
+                  C.Status,
+                  ''
+              )
+          )
+      ) = N'ยังไม่ดำเนินการ'
 
         AND C.crt_dt >= CONVERT(
             date,
@@ -618,15 +843,17 @@ export async function getWaitingJobs(): Promise<
 
         AND C.fin_dt IS NULL
 
-        AND
-        (
+        AND (
             C.CradleStaffNo IS NULL
-
             OR LTRIM(
                 RTRIM(
                     C.CradleStaffNo
                 )
             ) = ''
+        )
+
+        AND (
+            ${porterCondition}
         )
 
       ORDER BY
@@ -653,6 +880,7 @@ export async function getWaitingJobs(): Promise<
           END,
 
           C.crt_dt DESC,
+
           C.ReqNo DESC;
     `);
 
@@ -665,16 +893,13 @@ export async function getWaitingJobs(): Promise<
 }
 
 /**
- * ดึงงานเสร็จสิ้นของวันปัจจุบัน
- * เฉพาะพนักงานที่เข้าสู่ระบบ
+ * ดึงรายการงานที่เสร็จสิ้นของวันนี้
  */
 export async function getFinishedJobs(
   staffNo: string,
 ): Promise<PorterJob[]> {
   const normalizedStaffNo =
-    String(
-      staffNo ?? "",
-    ).trim();
+    normalizeCode(staffNo);
 
   if (!normalizedStaffNo) {
     return [];
@@ -698,8 +923,24 @@ export async function getFinishedJobs(
       LEFT JOIN dbo.wardcode SW
           ON C.LocSource = SW.Code
 
-      WHERE LTRIM(RTRIM(C.Status))
-          = N'เสร็จสิ้น'
+      LEFT JOIN dbo.WardSection WS
+          ON C.LocSource = WS.Ward
+
+      LEFT JOIN dbo.CradleMstRef_Head H
+          ON H.CradleDate =
+             CONVERT(
+                 date,
+                 C.crt_dt
+             )
+
+      WHERE LTRIM(
+          RTRIM(
+              ISNULL(
+                  C.Status,
+                  ''
+              )
+          )
+      ) = N'เสร็จสิ้น'
 
         AND LTRIM(
             RTRIM(
@@ -726,7 +967,8 @@ export async function getFinishedJobs(
 
       ORDER BY
           C.fin_dt DESC,
-          C.crt_dt DESC;
+          C.crt_dt DESC,
+          C.ReqNo DESC;
     `);
 
   return result.recordset.map(
@@ -738,14 +980,15 @@ export async function getFinishedJobs(
 }
 
 /* ============================================================
- * งานจริง: รับงาน / งานปัจจุบัน / ยกเลิก / เสร็จสิ้น
+ * งานจริง:
+ * รับงาน / งานปัจจุบัน / ยกเลิก / เสร็จสิ้น
  * ============================================================ */
 
 export type PorterLiveAssignment = {
   staffNo: string;
   staffName: string;
   assignedAt: string;
-  job: PorterJob;
+  jobs: PorterJob[];
 };
 
 export type PorterLiveActionCode =
@@ -755,6 +998,7 @@ export type PorterLiveActionCode =
   | "NOT_FOUND"
   | "NOT_OWNER"
   | "NOT_ACTIVE"
+  | "HEAD_JOB_CANNOT_CANCEL"
   | "INVALID_INPUT"
   | "DATABASE_ERROR";
 
@@ -779,18 +1023,26 @@ function normalizeCode(
 }
 
 /**
- * ดึงงานที่พนักงานคนนี้กำลังดำเนินการอยู่
+ * ดึงงานปัจจุบันทั้งหมด
+ *
+ * พนักงาน 1 คนสามารถมีงานกำลังดำเนินการหลายงานได้
+ *
+ * เช่น
+ *
+ * A = รับเอง
+ * B = หัวหน้ามอบหมาย
+ * C = หัวหน้ามอบหมาย
+ *
+ * จึงห้ามใช้ TOP 1
  */
-export async function getCurrentPorterJob(
+export async function getCurrentPorterJobs(
   staffNo: string,
-): Promise<PorterJob | null> {
+): Promise<PorterJob[]> {
   const normalizedStaffNo =
-    normalizeCode(
-      staffNo,
-    );
+    normalizeCode(staffNo);
 
   if (!normalizedStaffNo) {
-    return null;
+    return [];
   }
 
   const pool =
@@ -805,13 +1057,23 @@ export async function getCurrentPorterJob(
         normalizedStaffNo,
       )
       .query(`
-        SELECT TOP 1
+        SELECT
             ${porterSelectColumns}
 
         FROM CradleMst C
 
         LEFT JOIN dbo.wardcode SW
             ON C.LocSource = SW.Code
+
+        LEFT JOIN dbo.WardSection WS
+            ON C.LocSource = WS.Ward
+
+        LEFT JOIN dbo.CradleMstRef_Head H
+            ON H.CradleDate =
+               CONVERT(
+                   date,
+                   C.crt_dt
+               )
 
         WHERE LTRIM(
             RTRIM(
@@ -838,9 +1100,6 @@ export async function getCurrentPorterJob(
 
           AND C.fin_dt IS NULL
 
-          /*
-           * แสดงเฉพาะงานที่รับในวันปัจจุบัน
-           */
           AND C.Ass_dt >= CONVERT(
               date,
               GETDATE()
@@ -856,40 +1115,40 @@ export async function getCurrentPorterJob(
           )
 
         ORDER BY
-            C.Ass_dt DESC,
-            C.crt_dt DESC;
+            C.Ass_dt ASC,
+            C.crt_dt ASC,
+            C.ReqNo ASC;
       `);
 
-  const row =
-    result.recordset[0];
-
-  if (!row) {
-    return null;
-  }
-
-  return mapPorterJob(
-    row as PorterDbRow,
+  return result.recordset.map(
+    (row) =>
+      mapPorterJob(
+        row as PorterDbRow,
+      ),
   );
 }
 
+/**
+ * ดึงงานปัจจุบันทั้งหมดพร้อมข้อมูลพนักงาน
+ */
 export async function getCurrentPorterAssignment(
   staffNo: string,
 ): Promise<PorterLiveAssignment | null> {
   const normalizedStaffNo =
-    normalizeCode(
-      staffNo,
-    );
+    normalizeCode(staffNo);
 
   if (!normalizedStaffNo) {
     return null;
   }
 
-  const job =
-    await getCurrentPorterJob(
+  const jobs =
+    await getCurrentPorterJobs(
       normalizedStaffNo,
     );
 
-  if (!job) {
+  if (
+    jobs.length === 0
+  ) {
     return null;
   }
 
@@ -905,15 +1164,527 @@ export async function getCurrentPorterAssignment(
     staffName,
 
     assignedAt:
-      job.assignedAt
+      jobs[0]?.assignedAt
       ?? "",
 
-    job,
+    jobs,
   };
 }
 
 /**
+ * ============================================================
+ * ตรวจงานหัวหน้าที่มอบหมายเข้ามาใหม่
+ * ============================================================
+ */
+export async function getPendingHeadJob(
+  staffNo: string,
+  excludeReqNos?: string[],
+): Promise<PorterJob | null> {
+  const normalizedStaffNo =
+    normalizeCode(staffNo);
+
+  if (!normalizedStaffNo) {
+    return null;
+  }
+
+  const pool = await getDb();
+
+    const request =
+    pool
+      .request()
+      .input(
+        "StaffNo",
+        sql.VarChar(30),
+        normalizedStaffNo,
+      );
+
+  const normalizedExcludes =
+    (excludeReqNos ?? [])
+      .map((r) => normalizeCode(r))
+      .filter((r) => r);
+
+  normalizedExcludes.forEach(
+    (reqNo, index) => {
+      request.input(
+        `ExcludeReqNo${index}`,
+        sql.VarChar(50),
+        reqNo,
+      );
+    },
+  );
+
+  const result =
+    await request.query(`
+      SELECT TOP 1
+          ${porterSelectColumns}
+
+      FROM CradleMst C
+
+      LEFT JOIN dbo.CradleMstRef_Head H
+          ON H.CradleDate =
+             CONVERT(
+                 date,
+                 C.crt_dt
+             )
+
+      LEFT JOIN dbo.wardcode SW
+          ON C.LocSource = SW.Code
+
+      LEFT JOIN dbo.WardSection WS
+          ON C.LocSource = WS.Ward
+
+      WHERE
+          LTRIM(
+              RTRIM(
+                  ISNULL(
+                      C.CradleStaffNo,
+                      ''
+                  )
+              )
+          ) = @StaffNo
+
+        AND C.fin_dt IS NULL
+
+        AND C.crt_dt >= CONVERT(
+            date,
+            GETDATE()
+        )
+
+        AND C.crt_dt < DATEADD(
+            DAY,
+            1,
+            CONVERT(
+                date,
+                GETDATE()
+            )
+        )
+       
+        AND LTRIM(
+            RTRIM(
+                ISNULL(
+                    C.Status,
+                    ''
+                )
+            )
+        ) <> N'เสร็จสิ้น'
+
+        ${
+          normalizedExcludes.length > 0
+            ? `
+        AND C.ReqNo NOT IN (${normalizedExcludes
+          .map((_, index) => `@ExcludeReqNo${index}`)
+          .join(", ")})
+            `
+            : ""
+        }
+
+      ORDER BY
+
+          CASE
+              WHEN ISNULL(
+                  CONVERT(
+                      varchar(10),
+                      C.FastTrack
+                  ),
+                  '0'
+              ) = '2'
+              THEN 1
+
+              WHEN ISNULL(
+                  CONVERT(
+                      varchar(10),
+                      C.FastTrack
+                  ),
+                  '0'
+              ) = '1'
+              THEN 2
+
+              ELSE 3
+          END,
+
+          CASE
+              WHEN C.Status = N'กำลังดำเนินการ'
+              THEN 0
+              ELSE 1
+          END,
+
+          C.Ass_dt ASC,
+
+          C.crt_dt ASC,
+
+          C.ReqNo ASC;
+    `);
+
+  const row =
+    result.recordset[0];
+
+  if (!row) {
+    return null;
+  }
+
+  return mapPorterJob(
+    row as PorterDbRow,
+  );
+}
+
+/**
+ * ============================================================
+ * Auto รับงานหัวหน้า
+ *
+ * ตอนนี้ยังคง logic เดิมไว้ก่อน
+ * ============================================================
+ */
+export async function autoAssignHeadJob(
+  staffNo: string,
+): Promise<PorterLiveAssignment | null> {
+  const normalizedStaffNo =
+    normalizeCode(staffNo);
+
+  if (!normalizedStaffNo) {
+    return null;
+  }
+
+  const pool =
+    await getDb();
+
+  const transaction =
+    new sql.Transaction(
+      pool,
+    );
+
+  try {
+    await transaction.begin(
+      sql.ISOLATION_LEVEL.SERIALIZABLE,
+    );
+
+    /**
+     * ตรวจงาน Current
+     */
+    const activeResult =
+      await transaction
+        .request()
+        .input(
+          "StaffNo",
+          sql.VarChar(30),
+          normalizedStaffNo,
+        )
+        .query(`
+          SELECT TOP 1
+              C.ReqNo
+
+          FROM CradleMst C
+              WITH (
+                  UPDLOCK,
+                  HOLDLOCK
+              )
+
+          WHERE LTRIM(
+              RTRIM(
+                  ISNULL(
+                      C.CradleStaffNo,
+                      ''
+                  )
+              )
+          ) = @StaffNo
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        C.Status,
+                        ''
+                    )
+                )
+            ) = N'กำลังดำเนินการ'
+
+            AND ISNULL(
+                C.CurrentProc,
+                0
+            ) = 20
+
+            AND C.fin_dt IS NULL
+
+            AND C.Ass_dt >= CONVERT(
+                date,
+                GETDATE()
+            )
+
+            AND C.Ass_dt < DATEADD(
+                DAY,
+                1,
+                CONVERT(
+                    date,
+                    GETDATE()
+                )
+            )
+
+          ORDER BY
+              C.Ass_dt DESC;
+        `);
+
+    const activeReqNo =
+      normalizeCode(
+        activeResult
+          .recordset[0]
+          ?.ReqNo,
+      );
+
+    /**
+     * ถ้ามี Current อยู่
+     * ห้าม Auto รับงานใหม่
+     *
+     * หมายเหตุ:
+     * ส่วนนี้ยังไม่ได้แก้ในรอบนี้
+     */
+    if (activeReqNo) {
+      await transaction.rollback();
+
+      return null;
+    }
+
+    /**
+     * หางานหัวหน้าที่รออยู่
+     */
+    const headJobResult =
+      await transaction
+        .request()
+        .input(
+          "StaffNo",
+          sql.VarChar(30),
+          normalizedStaffNo,
+        )
+        .query(`
+          SELECT TOP 1
+              C.ReqNo
+
+          FROM CradleMst C
+              WITH (
+                  UPDLOCK,
+                  HOLDLOCK
+              )
+
+          LEFT JOIN dbo.CradleMstRef_Head H
+              ON H.CradleDate =
+                 CONVERT(
+                     date,
+                     C.crt_dt
+                 )
+
+          WHERE LTRIM(
+              RTRIM(
+                  ISNULL(
+                      C.CradleStaffNo,
+                      ''
+                  )
+              )
+          ) = @StaffNo
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        C.Status,
+                        ''
+                    )
+                )
+            ) = N'ยังไม่ดำเนินการ'
+
+            AND C.fin_dt IS NULL
+
+            AND C.crt_dt >= CONVERT(
+                date,
+                GETDATE()
+            )
+
+            AND C.crt_dt < DATEADD(
+                DAY,
+                1,
+                CONVERT(
+                    date,
+                    GETDATE()
+                )
+            )
+
+          ORDER BY
+
+              CASE
+                  WHEN ISNULL(
+                      CONVERT(
+                          varchar(10),
+                          C.FastTrack
+                      ),
+                      '0'
+                  ) = '2'
+                  THEN 1
+
+                  WHEN ISNULL(
+                      CONVERT(
+                          varchar(10),
+                          C.FastTrack
+                      ),
+                      '0'
+                  ) = '1'
+                  THEN 2
+
+                  ELSE 3
+              END,
+
+              C.crt_dt ASC,
+
+              C.ReqNo ASC;
+        `);
+
+    const headJob =
+      headJobResult
+        .recordset[0];
+
+    /**
+     * ไม่มีงานหัวหน้า
+     */
+    if (!headJob) {
+      await transaction.commit();
+
+      return null;
+    }
+
+    const reqNo =
+      normalizeCode(
+        headJob.ReqNo,
+      );
+
+    /**
+     * เปลี่ยนเป็นกำลังดำเนินการ
+     */
+    const updateResult =
+      await transaction
+        .request()
+        .input(
+          "ReqNo",
+          sql.VarChar(50),
+          reqNo,
+        )
+        .input(
+          "StaffNo",
+          sql.VarChar(30),
+          normalizedStaffNo,
+        )
+        .query(`
+          UPDATE C
+
+          SET
+              C.Ass_dt =
+                  GETDATE(),
+
+              C.fin_dt =
+                  NULL,
+
+              C.Status =
+                  N'กำลังดำเนินการ',
+
+              C.CurrentProc =
+                  20
+
+          FROM CradleMst C
+
+          LEFT JOIN dbo.CradleMstRef_Head H
+              ON H.CradleDate =
+                 CONVERT(
+                     date,
+                     C.crt_dt
+                 )
+
+          WHERE C.ReqNo =
+              @ReqNo
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        C.CradleStaffNo,
+                        ''
+                    )
+                )
+            ) = @StaffNo
+
+            AND LTRIM(
+                RTRIM(
+                    ISNULL(
+                        C.Status,
+                        ''
+                    )
+                )
+            ) = N'ยังไม่ดำเนินการ'
+
+            AND C.fin_dt IS NULL
+
+            AND C.crt_dt >= CONVERT(
+                date,
+                GETDATE()
+            )
+
+            AND C.crt_dt < DATEADD(
+                DAY,
+                1,
+                CONVERT(
+                    date,
+                    GETDATE()
+                )
+            )
+
+            
+        `);
+
+    const affected =
+      updateResult
+        .rowsAffected[0]
+      ?? 0;
+
+    if (affected !== 1) {
+      await transaction.rollback();
+
+      return null;
+    }
+
+    await transaction.commit();
+
+    /**
+     * ดึงงานที่เพิ่ง Auto รับ
+     */
+    const assignment =
+      await getCurrentPorterAssignment(
+        normalizedStaffNo,
+      );
+
+    return assignment;
+  } catch (error) {
+    try {
+      await transaction.rollback();
+    } catch {
+      // ไม่ต้องทำอะไร
+    }
+
+    console.error(
+      "autoAssignHeadJob error:",
+      error,
+    );
+
+    return null;
+  }
+}
+
+/**
+ * ============================================================
  * รับงานจริง
+ *
+ * สำคัญ:
+ *
+ * พนักงานสามารถมีงานหลายงานพร้อมกันได้
+ *
+ * เช่น
+ *
+ * A = รับเอง
+ * B = รับเพิ่ม
+ * C = รับเพิ่ม
+ *
+ * ห้ามตรวจว่าพนักงานมี Current อยู่แล้ว
+ * ============================================================
  */
 export async function acceptPorterJobDb(
   reqNo: string,
@@ -930,8 +1701,8 @@ export async function acceptPorterJobDb(
     );
 
   if (
-    !normalizedReqNo
-    || !normalizedStaffNo
+    !normalizedReqNo ||
+    !normalizedStaffNo
   ) {
     return {
       success: false,
@@ -954,101 +1725,9 @@ export async function acceptPorterJobDb(
       sql.ISOLATION_LEVEL.SERIALIZABLE,
     );
 
-    const activeResult =
-  await transaction
-    .request()
-    .input(
-      "StaffNo",
-      sql.VarChar(30),
-      normalizedStaffNo,
-    )
-    .query(`
-      SELECT TOP 1
-          C.ReqNo
-
-      FROM CradleMst C
-          WITH (
-              UPDLOCK,
-              HOLDLOCK
-          )
-
-      WHERE LTRIM(
-          RTRIM(
-              ISNULL(
-                  C.CradleStaffNo,
-                  ''
-              )
-          )
-      ) = @StaffNo
-
-        AND LTRIM(
-            RTRIM(
-                ISNULL(
-                    C.Status,
-                    ''
-                )
-            )
-        ) = N'กำลังดำเนินการ'
-
-        AND ISNULL(
-            C.CurrentProc,
-            0
-        ) = 20
-
-        AND C.fin_dt IS NULL
-
-        /*
-         * เช็กเฉพาะงานที่รับในวันปัจจุบัน
-         * งานเก่าวันก่อนจะไม่ขวางการรับงานวันนี้
-         */
-        AND C.Ass_dt >= CONVERT(
-            date,
-            GETDATE()
-        )
-
-        AND C.Ass_dt < DATEADD(
-            DAY,
-            1,
-            CONVERT(
-                date,
-                GETDATE()
-            )
-        )
-
-      ORDER BY
-          C.Ass_dt DESC;
-    `);
-
-    const activeReqNo =
-      normalizeCode(
-        activeResult
-          .recordset[0]
-          ?.ReqNo,
-      );
-
-    if (
-      activeReqNo
-      && activeReqNo
-        !== normalizedReqNo
-    ) {
-      await transaction.rollback();
-
-      const assignment =
-        await getCurrentPorterAssignment(
-          normalizedStaffNo,
-        );
-
-      return {
-        success: false,
-        code:
-          "STAFF_HAS_ACTIVE_JOB",
-        message:
-          `มีงาน ${activeReqNo} กำลังดำเนินการอยู่`,
-        assignment:
-          assignment ?? undefined,
-      };
-    }
-
+    /**
+     * ตรวจงานเป้าหมาย
+     */
     const targetResult =
       await transaction
         .request()
@@ -1072,7 +1751,8 @@ export async function acceptPorterJobDb(
                   HOLDLOCK
               )
 
-          WHERE C.ReqNo = @ReqNo;
+          WHERE C.ReqNo =
+              @ReqNo;
         `);
 
     const target =
@@ -1106,12 +1786,13 @@ export async function acceptPorterJobDb(
         ?? 0,
       );
 
+    /**
+     * งานเสร็จแล้ว
+     */
     if (
-      target.fin_dt
-      || targetStatus
-        === "เสร็จสิ้น"
-      || targetCurrentProc
-        === 30
+      target.fin_dt ||
+      targetStatus === "เสร็จสิ้น" ||
+      targetCurrentProc === 30
     ) {
       await transaction.rollback();
 
@@ -1124,13 +1805,19 @@ export async function acceptPorterJobDb(
       };
     }
 
+    /**
+     * ถ้างานนี้เป็นของพนักงานคนนี้
+     * และกำลังดำเนินการอยู่แล้ว
+     *
+     * ให้ถือว่ารับงานสำเร็จ
+     * แล้วส่งรายการ Current ทั้งหมดกลับไป
+     */
     if (
-      targetStaffNo
-        === normalizedStaffNo
-      && targetStatus
-        === "กำลังดำเนินการ"
-      && targetCurrentProc
-        === 20
+      targetStaffNo ===
+        normalizedStaffNo &&
+      targetStatus ===
+        "กำลังดำเนินการ" &&
+      targetCurrentProc === 20
     ) {
       await transaction.commit();
 
@@ -1143,9 +1830,12 @@ export async function acceptPorterJobDb(
         return {
           success: true,
           assignment:
-            assignment ?? undefined,
+            assignment
+            ?? undefined,
         };
-      } catch (assignmentError) {
+      } catch (
+        assignmentError
+      ) {
         console.error(
           "Load assignment after accept error:",
           assignmentError,
@@ -1157,6 +1847,9 @@ export async function acceptPorterJobDb(
       }
     }
 
+    /**
+     * งานมีพนักงานคนอื่นรับไปแล้ว
+     */
     if (targetStaffNo) {
       await transaction.rollback();
 
@@ -1169,9 +1862,12 @@ export async function acceptPorterJobDb(
       };
     }
 
+    /**
+     * ต้องเป็นงานที่รอรับเท่านั้น
+     */
     if (
-      targetStatus
-        !== "ยังไม่ดำเนินการ"
+      targetStatus !==
+      "ยังไม่ดำเนินการ"
     ) {
       await transaction.rollback();
 
@@ -1183,6 +1879,9 @@ export async function acceptPorterJobDb(
       };
     }
 
+    /**
+     * รับงาน
+     */
     const updateResult =
       await transaction
         .request()
@@ -1198,6 +1897,7 @@ export async function acceptPorterJobDb(
         )
         .query(`
           UPDATE CradleMst
+
           SET
               CradleStaffNo =
                   @StaffNo,
@@ -1258,6 +1958,11 @@ export async function acceptPorterJobDb(
 
     await transaction.commit();
 
+    /**
+     * ดึงงานปัจจุบันทั้งหมด
+     *
+     * ตรงนี้จะได้ A + B + C + D
+     */
     try {
       const assignment =
         await getCurrentPorterAssignment(
@@ -1267,9 +1972,12 @@ export async function acceptPorterJobDb(
       return {
         success: true,
         assignment:
-          assignment ?? undefined,
+          assignment
+          ?? undefined,
       };
-    } catch (assignmentError) {
+    } catch (
+      assignmentError
+    ) {
       console.error(
         "Load assignment after accept error:",
         assignmentError,
@@ -1283,7 +1991,7 @@ export async function acceptPorterJobDb(
     try {
       await transaction.rollback();
     } catch {
-      //
+      // ไม่ต้องทำอะไร
     }
 
     console.error(
@@ -1319,8 +2027,8 @@ export async function cancelPorterJobDb(
     );
 
   if (
-    !normalizedReqNo
-    || !normalizedStaffNo
+    !normalizedReqNo ||
+    !normalizedStaffNo
   ) {
     return {
       success: false,
@@ -1356,13 +2064,53 @@ export async function cancelPorterJobDb(
               C.Status,
               C.CurrentProc,
               C.CradleStaffNo,
-              C.fin_dt
+              C.fin_dt,
+
+              CASE
+                  WHEN LTRIM(
+                      RTRIM(
+                          ISNULL(
+                              C.crt_user,
+                              ''
+                          )
+                      )
+                  ) =
+                  LTRIM(
+                      RTRIM(
+                          ISNULL(
+                              CASE
+                                  WHEN C.Shift = N'เช้า'
+                                      THEN H.HeadAMNo
+
+                                  WHEN C.Shift = N'บ่าย'
+                                      THEN H.HeadPMNo
+
+                                  WHEN C.Shift = N'ดึก'
+                                      THEN H.HeadNightNo
+
+                                  ELSE NULL
+                              END,
+                              ''
+                          )
+                      )
+                  )
+                  THEN CAST(1 AS bit)
+
+                  ELSE CAST(0 AS bit)
+              END AS IsHeadJob
 
           FROM CradleMst C
               WITH (
                   UPDLOCK,
                   HOLDLOCK
               )
+
+          LEFT JOIN dbo.CradleMstRef_Head H
+              ON H.CradleDate =
+                 CONVERT(
+                     date,
+                     C.crt_dt
+                 )
 
           WHERE C.ReqNo =
               @ReqNo;
@@ -1394,9 +2142,9 @@ export async function cancelPorterJobDb(
       );
 
     if (
-      target.fin_dt
-      || targetStatus
-        === "เสร็จสิ้น"
+      target.fin_dt ||
+      targetStatus ===
+        "เสร็จสิ้น"
     ) {
       await transaction.rollback();
 
@@ -1410,8 +2158,8 @@ export async function cancelPorterJobDb(
     }
 
     if (
-      targetStaffNo
-        !== normalizedStaffNo
+      targetStaffNo !==
+      normalizedStaffNo
     ) {
       await transaction.rollback();
 
@@ -1420,6 +2168,26 @@ export async function cancelPorterJobDb(
         code: "NOT_OWNER",
         message:
           "งานนี้ไม่ได้อยู่ในความรับผิดชอบของผู้ใช้งานปัจจุบัน",
+      };
+    }
+
+    /**
+     * งานหัวหน้า
+     * ห้ามยกเลิก
+     */
+    if (
+      getBoolean(
+        target.IsHeadJob,
+      )
+    ) {
+      await transaction.rollback();
+
+      return {
+        success: false,
+        code:
+          "HEAD_JOB_CANNOT_CANCEL",
+        message:
+          "งานที่หัวหน้ามอบหมายไม่สามารถยกเลิกได้",
       };
     }
 
@@ -1438,6 +2206,7 @@ export async function cancelPorterJobDb(
         )
         .query(`
           UPDATE CradleMst
+
           SET
               CradleStaffNo =
                   NULL,
@@ -1507,7 +2276,7 @@ export async function cancelPorterJobDb(
     try {
       await transaction.rollback();
     } catch {
-      //
+      // ไม่ต้องทำอะไร
     }
 
     console.error(
@@ -1543,8 +2312,8 @@ export async function finishPorterJobDb(
     );
 
   if (
-    !normalizedReqNo
-    || !normalizedStaffNo
+    !normalizedReqNo ||
+    !normalizedStaffNo
   ) {
     return {
       success: false,
@@ -1618,9 +2387,9 @@ export async function finishPorterJobDb(
       );
 
     if (
-      target.fin_dt
-      || targetStatus
-        === "เสร็จสิ้น"
+      target.fin_dt ||
+      targetStatus ===
+        "เสร็จสิ้น"
     ) {
       await transaction.rollback();
 
@@ -1634,8 +2403,8 @@ export async function finishPorterJobDb(
     }
 
     if (
-      targetStaffNo
-        !== normalizedStaffNo
+      targetStaffNo !==
+      normalizedStaffNo
     ) {
       await transaction.rollback();
 
@@ -1662,6 +2431,7 @@ export async function finishPorterJobDb(
         )
         .query(`
           UPDATE CradleMst
+
           SET
               fin_dt =
                   GETDATE(),
@@ -1725,7 +2495,7 @@ export async function finishPorterJobDb(
     try {
       await transaction.rollback();
     } catch {
-      //
+      // ไม่ต้องทำอะไร
     }
 
     console.error(
