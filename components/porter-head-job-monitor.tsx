@@ -81,6 +81,9 @@ export default function PorterHeadJobMonitor() {
   const notifiedHeadReqNosRef =
     useRef<Set<string>>(new Set());
 
+  const seenCurrentReqNosRef =
+    useRef<Set<string>>(new Set());
+
   function notifyNewHeadJobs(
     reqNos: string[],
   ): void {
@@ -164,21 +167,43 @@ export default function PorterHeadJobMonitor() {
         const currentJobs =
           currentAssignment?.jobs ?? [];
 
-        if (currentJobs.length > 0) {
-          notifyNewHeadJobs(
-            currentJobs.map((job) =>
+        const newJobs = currentJobs.filter(
+          (job) =>
+            !seenCurrentReqNosRef.current.has(
               String(job.reqNo ?? "").trim(),
             ),
+        );
+
+        currentJobs.forEach((job) => {
+          seenCurrentReqNosRef.current.add(
+            String(job.reqNo ?? "").trim(),
           );
+        });
 
-          if (pathname !== "/mobile-porter/current") {
-            router.replace("/mobile-porter/current");
-          } else {
-            router.refresh();
+        /* toast สีส้มเฉพาะงานหัวหน้าจริง */
+        notifyNewHeadJobs(
+          newJobs
+            .filter((job) => job.isHeadJob === true)
+            .map((job) => String(job.reqNo ?? "").trim()),
+        );
+
+        /* มีงานใหม่เข้ามา -> เด้งไปหน้า current */
+          if (newJobs.length > 0) {
+            if (pathname !== "/mobile-porter/current") {
+              router.replace("/mobile-porter/current");
+            } else {
+              router.refresh();
+            }
+
+            /* จำงานหลังสั่ง redirect แล้วเท่านั้น */
+            newJobs.forEach((job) => {
+              seenCurrentReqNosRef.current.add(
+                String(job.reqNo ?? "").trim(),
+              );
+            });
+
+            return;
           }
-
-          return;
-        }
 
         /*
          * ไม่มีงานหัวหน้ารอ

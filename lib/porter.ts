@@ -610,36 +610,17 @@ const porterSelectColumns = `
 
     C.fin_dt AS FinishedAt,
 
-    CASE
-        WHEN LTRIM(
-            RTRIM(
-                ISNULL(
-                    C.crt_user,
-                    ''
-                )
-            )
-        ) =
-        LTRIM(
-            RTRIM(
-                ISNULL(
-                    CASE
-                        WHEN C.Shift = N'เช้า'
-                            THEN H.HeadAMNo
-
-                        WHEN C.Shift = N'บ่าย'
-                            THEN H.HeadPMNo
-
-                        WHEN C.Shift = N'ดึก'
-                            THEN H.HeadNightNo
-
-                        ELSE NULL
-                    END,
-                    ''
-                )
-            )
-        )
-        THEN CAST(1 AS bit)
-
+      CASE
+        WHEN NULLIF(LTRIM(RTRIM(ISNULL(C.AssignedByHeader, ''))), '') IS NOT NULL
+         AND LTRIM(RTRIM(C.AssignedByHeader)) =
+             LTRIM(RTRIM(ISNULL(
+                 CASE
+                     WHEN C.Shift = N'เช้า' THEN H.HeadAMNo
+                     WHEN C.Shift = N'บ่าย' THEN H.HeadPMNo
+                     WHEN C.Shift = N'ดึก'  THEN H.HeadNightNo
+                     ELSE NULL
+                 END, '')))
+            THEN CAST(1 AS bit)
         ELSE CAST(0 AS bit)
     END AS IsHeadJob,
 
@@ -1897,25 +1878,26 @@ export async function acceptPorterJobDb(
         )
         .query(`
           UPDATE CradleMst
+            SET
+                CradleStaffNo =
+                    @StaffNo,
 
-          SET
-              CradleStaffNo =
-                  @StaffNo,
+                Ass_dt =
+                    GETDATE(),
 
-              Ass_dt =
-                  GETDATE(),
+                fin_dt =
+                    NULL,
 
-              fin_dt =
-                  NULL,
+                Status =
+                    N'กำลังดำเนินการ',
 
-              Status =
-                  N'กำลังดำเนินการ',
+                CurrentProc =
+                    20,
 
-              CurrentProc =
-                  20
+                AssignedByHeader =
+                    NULL
 
-          WHERE ReqNo =
-              @ReqNo
+            WHERE ReqNo = @ReqNo
 
             AND LTRIM(
                 RTRIM(
@@ -2060,42 +2042,23 @@ export async function cancelPorterJobDb(
           normalizedReqNo,
         )
         .query(`
-          SELECT TOP 1
+            SELECT TOP 1
               C.Status,
               C.CurrentProc,
               C.CradleStaffNo,
               C.fin_dt,
 
               CASE
-                  WHEN LTRIM(
-                      RTRIM(
-                          ISNULL(
-                              C.crt_user,
-                              ''
-                          )
-                      )
-                  ) =
-                  LTRIM(
-                      RTRIM(
-                          ISNULL(
-                              CASE
-                                  WHEN C.Shift = N'เช้า'
-                                      THEN H.HeadAMNo
-
-                                  WHEN C.Shift = N'บ่าย'
-                                      THEN H.HeadPMNo
-
-                                  WHEN C.Shift = N'ดึก'
-                                      THEN H.HeadNightNo
-
-                                  ELSE NULL
-                              END,
-                              ''
-                          )
-                      )
-                  )
-                  THEN CAST(1 AS bit)
-
+                  WHEN NULLIF(LTRIM(RTRIM(ISNULL(C.AssignedByHeader, ''))), '') IS NOT NULL
+                  AND LTRIM(RTRIM(C.AssignedByHeader)) =
+                      LTRIM(RTRIM(ISNULL(
+                          CASE
+                              WHEN C.Shift = N'เช้า' THEN H.HeadAMNo
+                              WHEN C.Shift = N'บ่าย' THEN H.HeadPMNo
+                              WHEN C.Shift = N'ดึก'  THEN H.HeadNightNo
+                              ELSE NULL
+                          END, '')))
+                      THEN CAST(1 AS bit)
                   ELSE CAST(0 AS bit)
               END AS IsHeadJob
 
@@ -2106,14 +2069,9 @@ export async function cancelPorterJobDb(
               )
 
           LEFT JOIN dbo.CradleMstRef_Head H
-              ON H.CradleDate =
-                 CONVERT(
-                     date,
-                     C.crt_dt
-                 )
+              ON H.CradleDate = CONVERT(date, C.crt_dt)
 
-          WHERE C.ReqNo =
-              @ReqNo;
+          WHERE C.ReqNo = @ReqNo;
         `);
 
     const target =
@@ -2207,24 +2165,27 @@ export async function cancelPorterJobDb(
         .query(`
           UPDATE CradleMst
 
-          SET
-              CradleStaffNo =
-                  NULL,
+            SET
+                CradleStaffNo =
+                    NULL,
 
-              Ass_dt =
-                  NULL,
+                Ass_dt =
+                    NULL,
 
-              fin_dt =
-                  NULL,
+                fin_dt =
+                    NULL,
 
-              Status =
-                  N'ยังไม่ดำเนินการ',
+                Status =
+                    N'ยังไม่ดำเนินการ',
 
-              CurrentProc =
-                  10
+                CurrentProc =
+                    10,
 
-          WHERE ReqNo =
-              @ReqNo
+                AssignedByHeader =
+                    NULL
+
+            WHERE ReqNo =
+                @ReqNo
 
             AND LTRIM(
                 RTRIM(
