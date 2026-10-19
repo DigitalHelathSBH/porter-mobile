@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as sql from "mssql";
 
 import { getDb } from "@/lib/db";
+import { normalizeStaffNo } from "@/lib/porter-staff";
 import { getStaffDisplayName } from "@/lib/porter";
 
 type EmpLoginRow = {
@@ -16,9 +17,7 @@ export async function POST(
       await request.json();
 
     const empId =
-      String(
-        body.empId ?? "",
-      ).trim();
+      normalizeStaffNo(body.empId);
 
     const password =
       String(
@@ -94,14 +93,14 @@ export async function POST(
 
           FROM Saraburi.dbo.Emp
 
-          WHERE LTRIM(
+          WHERE UPPER(LTRIM(
               RTRIM(
                 CONVERT(
                   varchar(50),
                   EmpID
                 )
               )
-          ) = @EmpID
+          )) = @EmpID
 
           AND LTRIM(
               RTRIM(
@@ -139,10 +138,7 @@ export async function POST(
     }
 
     const staffNo =
-      String(
-        employee.EmpID
-        ?? empId,
-      ).trim();
+      normalizeStaffNo(employee.EmpID ?? empId);
 
     // =========================
     // ดึงชื่อเจ้าหน้าที่

@@ -3,6 +3,7 @@ import "server-only";
 import * as sql from "mssql";
 
 import { getDb } from "@/lib/db";
+import { normalizeStaffNo } from "@/lib/porter-staff";
 import type { PorterJob } from "@/types/porter";
 
 /**
@@ -647,9 +648,7 @@ export async function getStaffDisplayName(
   staffNo: string,
 ): Promise<string> {
   const normalizedStaffNo =
-    String(
-      staffNo ?? "",
-    ).trim();
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return "";
@@ -670,7 +669,7 @@ export async function getStaffDisplayName(
               PAYROLLNO
           ) AS StaffName
       FROM PYREXT
-      WHERE PAYROLLNO = @StaffNo;
+      WHERE UPPER(LTRIM(RTRIM(PAYROLLNO))) = @StaffNo;
     `);
 
   const staffName =
@@ -880,7 +879,7 @@ export async function getFinishedJobs(
   staffNo: string,
 ): Promise<PorterJob[]> {
   const normalizedStaffNo =
-    normalizeCode(staffNo);
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return [];
@@ -923,14 +922,14 @@ export async function getFinishedJobs(
           )
       ) = N'เสร็จสิ้น'
 
-        AND LTRIM(
+        AND UPPER(LTRIM(
             RTRIM(
                 ISNULL(
                     C.CradleStaffNo,
                     ''
                 )
             )
-        ) = @StaffNo
+        )) = @StaffNo
 
         AND C.fin_dt >= CONVERT(
             date,
@@ -1020,7 +1019,7 @@ export async function getCurrentPorterJobs(
   staffNo: string,
 ): Promise<PorterJob[]> {
   const normalizedStaffNo =
-    normalizeCode(staffNo);
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return [];
@@ -1056,14 +1055,14 @@ export async function getCurrentPorterJobs(
                    C.crt_dt
                )
 
-        WHERE LTRIM(
+        WHERE UPPER(LTRIM(
             RTRIM(
                 ISNULL(
                     C.CradleStaffNo,
                     ''
                 )
             )
-        ) = @StaffNo
+        )) = @StaffNo
 
           AND LTRIM(
               RTRIM(
@@ -1116,7 +1115,7 @@ export async function getCurrentPorterAssignment(
   staffNo: string,
 ): Promise<PorterLiveAssignment | null> {
   const normalizedStaffNo =
-    normalizeCode(staffNo);
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return null;
@@ -1162,7 +1161,7 @@ export async function getPendingHeadJob(
   excludeReqNos?: string[],
 ): Promise<PorterJob | null> {
   const normalizedStaffNo =
-    normalizeCode(staffNo);
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return null;
@@ -1215,14 +1214,14 @@ export async function getPendingHeadJob(
           ON C.LocSource = WS.Ward
 
       WHERE
-          LTRIM(
+          UPPER(LTRIM(
               RTRIM(
                   ISNULL(
                       C.CradleStaffNo,
                       ''
                   )
               )
-          ) = @StaffNo
+          )) = @StaffNo
 
         AND C.fin_dt IS NULL
 
@@ -1319,7 +1318,7 @@ export async function autoAssignHeadJob(
   staffNo: string,
 ): Promise<PorterLiveAssignment | null> {
   const normalizedStaffNo =
-    normalizeCode(staffNo);
+    normalizeStaffNo(staffNo);
 
   if (!normalizedStaffNo) {
     return null;
@@ -1359,14 +1358,14 @@ export async function autoAssignHeadJob(
                   HOLDLOCK
               )
 
-          WHERE LTRIM(
+          WHERE UPPER(LTRIM(
               RTRIM(
                   ISNULL(
                       C.CradleStaffNo,
                       ''
                   )
               )
-          ) = @StaffNo
+          )) = @StaffNo
 
             AND LTRIM(
                 RTRIM(
@@ -1450,14 +1449,14 @@ export async function autoAssignHeadJob(
                      C.crt_dt
                  )
 
-          WHERE LTRIM(
+          WHERE UPPER(LTRIM(
               RTRIM(
                   ISNULL(
                       C.CradleStaffNo,
                       ''
                   )
               )
-          ) = @StaffNo
+          )) = @StaffNo
 
             AND LTRIM(
                 RTRIM(
@@ -1575,14 +1574,14 @@ export async function autoAssignHeadJob(
           WHERE C.ReqNo =
               @ReqNo
 
-            AND LTRIM(
+            AND UPPER(LTRIM(
                 RTRIM(
                     ISNULL(
                         C.CradleStaffNo,
                         ''
                     )
                 )
-            ) = @StaffNo
+            )) = @StaffNo
 
             AND LTRIM(
                 RTRIM(
@@ -1677,7 +1676,7 @@ export async function acceptPorterJobDb(
     );
 
   const normalizedStaffNo =
-    normalizeCode(
+    normalizeStaffNo(
       staffNo,
     );
 
@@ -1757,7 +1756,7 @@ export async function acceptPorterJobDb(
       );
 
     const targetStaffNo =
-      normalizeCode(
+      normalizeStaffNo(
         target.CradleStaffNo,
       );
 
@@ -2004,7 +2003,7 @@ export async function cancelPorterJobDb(
     );
 
   const normalizedStaffNo =
-    normalizeCode(
+    normalizeStaffNo(
       staffNo,
     );
 
@@ -2090,7 +2089,7 @@ export async function cancelPorterJobDb(
     }
 
     const targetStaffNo =
-      normalizeCode(
+      normalizeStaffNo(
         target.CradleStaffNo,
       );
 
@@ -2187,14 +2186,14 @@ export async function cancelPorterJobDb(
             WHERE ReqNo =
                 @ReqNo
 
-            AND LTRIM(
+            AND UPPER(LTRIM(
                 RTRIM(
                     ISNULL(
                         CradleStaffNo,
                         ''
                     )
                 )
-            ) = @StaffNo
+            )) = @StaffNo
 
             AND LTRIM(
                 RTRIM(
@@ -2268,7 +2267,7 @@ export async function finishPorterJobDb(
     );
 
   const normalizedStaffNo =
-    normalizeCode(
+    normalizeStaffNo(
       staffNo,
     );
 
@@ -2338,7 +2337,7 @@ export async function finishPorterJobDb(
     }
 
     const targetStaffNo =
-      normalizeCode(
+      normalizeStaffNo(
         target.CradleStaffNo,
       );
 
@@ -2406,14 +2405,14 @@ export async function finishPorterJobDb(
           WHERE ReqNo =
               @ReqNo
 
-            AND LTRIM(
+            AND UPPER(LTRIM(
                 RTRIM(
                     ISNULL(
                         CradleStaffNo,
                         ''
                     )
                 )
-            ) = @StaffNo
+            )) = @StaffNo
 
             AND LTRIM(
                 RTRIM(

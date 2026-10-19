@@ -149,7 +149,6 @@ export default function PorterHeadJobMonitor() {
         const result =
           (await response.json()) as AutoHeadResponse;
 
-        console.log("=== auto-head result ===", result);   // ← เพิ่มบรรทัดนี้
 
         if (!result.success) {
           return;
