@@ -3,8 +3,19 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+
+import { useRouter } from "next/navigation";
+import {
+  dashboardCacheKey,
+  getDashboardSnapshot,
+  getServerDashboardSnapshot,
+  saveDashboardSnapshot,
+  subscribeDashboardCache,
+} from "@/lib/porter-dashboard-cache";
 
 import PorterDashboard
   from "@/components/porter-dashboard";
@@ -20,6 +31,7 @@ type DashboardView =
 
 type Props = {
   viewMode: DashboardView;
+  expectedStaffNo: string;
 };
 
 type DashboardApiResponse = {
@@ -32,66 +44,28 @@ type DashboardApiResponse = {
   alertJobs?: PorterJob[];
 };
 
-const DASHBOARD_LOADED_KEY = "porterDashboardLoadedOnce";
-
-function hasDashboardLoadedBefore(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  try {
-    return (
-      window.sessionStorage.getItem(DASHBOARD_LOADED_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
-
-function markDashboardLoaded(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.sessionStorage.setItem(DASHBOARD_LOADED_KEY, "1");
-  } catch {
-    // ไม่ต้องทำอะไร ถ้า sessionStorage ใช้ไม่ได้
-  }
-}
-
 export default function PorterDashboardLoader({
   viewMode,
+  expectedStaffNo,
 }: Props) {
-  const [isLoading, setIsLoading] =
-    useState(true);
-
+  const router = useRouter();
+  const key = dashboardCacheKey(expectedStaffNo, viewMode);
+  const getSnapshot = useCallback(() => getDashboardSnapshot(key), [key]);
+  const snapshot = useSyncExternalStore(subscribeDashboardCache, getSnapshot, getServerDashboardSnapshot);
+  const requestRef = useRef<AbortController | null>(null);
   const [errorMessage, setErrorMessage] =
     useState("");
-
-  const [staffNo, setStaffNo] =
-    useState("");
-
-  const [staffName, setStaffName] =
-    useState("");
-
-  const [jobs, setJobs] =
-    useState<PorterJob[]>([]);
-
-  const [alertJobs, setAlertJobs] =
-    useState<PorterJob[]>([]);
-  const [hasActiveJob, setHasActiveJob] = useState(false);
 
   const loadDashboard =
     useCallback(
       async (
         silent = false,
       ): Promise<void> => {
+        if (requestRef.current) return;
+        const controller = new AbortController();
+        requestRef.current = controller;
+        const timeout = window.setTimeout(() => controller.abort(), 75_000);
         try {
-          if (!silent) {
-            setIsLoading(true);
-          }
-
           setErrorMessage("");
 
           const response =
@@ -101,6 +75,7 @@ export default function PorterDashboardLoader({
                 method: "POST",
 
                 cache: "no-store",
+                signal: controller.signal,
 
                 credentials:
                   "same-origin",
@@ -136,14 +111,15 @@ export default function PorterDashboardLoader({
             );
           }
 
+          if (requestRef.current !== controller) return;
+
           /*
            * Session หมด
            */
           if (
             response.status === 401
           ) {
-            window.location.href =
-              "/mobile-porter/login";
+            router.replace("/mobile-porter/login");
 
             return;
           }
@@ -197,13 +173,10 @@ export default function PorterDashboardLoader({
                 "",
             ).trim();
 
-          setStaffNo(
-            nextStaffNo,
-          );
-
-          setStaffName(
-            nextStaffName,
-          );
+          if (nextStaffNo.toUpperCase() !== expectedStaffNo.trim().toUpperCase()) {
+            router.refresh();
+            return;
+          }
 
           /*
            * รายการงาน
@@ -215,9 +188,6 @@ export default function PorterDashboardLoader({
               ? result.jobs
               : [];
 
-          setJobs(
-            nextJobs,
-          );
 
           /*
            * งานสำหรับแจ้งเตือน
@@ -235,13 +205,17 @@ export default function PorterDashboardLoader({
               ? result.alertJobs
               : nextJobs;
 
-          setAlertJobs(
-            nextAlertJobs,
-          );
           const assignment = result.currentAssignment as { jobs?: PorterJob[] } | null | undefined;
-          setHasActiveJob((assignment?.jobs?.length ?? 0) > 0);
+          saveDashboardSnapshot(key, {
+            staffNo: nextStaffNo,
+            staffName: nextStaffName,
+            jobs: nextJobs,
+            alertJobs: nextAlertJobs,
+            hasActiveJob: (assignment?.jobs?.length ?? 0) > 0,
+          });
         } catch (error) {
-          console.error(
+          if (requestRef.current !== controller) return;
+          console.warn(
             "loadDashboard error:",
             error,
           );
@@ -252,7 +226,7 @@ export default function PorterDashboardLoader({
            * ไม่เปลี่ยนหน้าจอเป็น Error
            * และเก็บข้อมูลเดิมเอาไว้
            */
-          if (!silent) {
+          if (!silent || !getDashboardSnapshot(key)) {
             setErrorMessage(
               error instanceof Error
                 ? error.message
@@ -260,42 +234,38 @@ export default function PorterDashboardLoader({
             );
           }
         } finally {
-          if (!silent) {
-            setIsLoading(false);
-          }
+          window.clearTimeout(timeout);
+          if (requestRef.current === controller) requestRef.current = null;
         }
       },
       [
         viewMode,
+        expectedStaffNo,
+        key,
+        router,
       ],
     );
 
   /*
  * โหลดครั้งแรก
  *
- * ครั้งแรกสุดของแอป -> โชว์จอ "กำลังโหลด"
- * ครั้งต่อๆ ไป (สลับแท็บ) -> โหลดเงียบๆ ไม่ขึ้นจอ loading
+ * แสดงข้อมูลล่าสุดที่มีทันที แล้วตรวจข้อมูลใหม่เบื้องหลัง
+ * ถ้ายังไม่เคยโหลดสำเร็จ ให้รอข้อมูลแทนการแสดงรายการว่าง
  */
 useEffect(
   () => {
     const initialLoad = window.setTimeout(() => {
-    const isFirstLoad = !hasDashboardLoadedBefore();
-    markDashboardLoaded();
-
-    if (!isFirstLoad) {
-      /*
-       * เคยโหลดมาก่อนแล้วในเซสชันนี้
-       * ข้ามจอ loading เต็มจอทันที
-       */
-      setIsLoading(false);
-    }
-
-    void loadDashboard(!isFirstLoad);
+      void loadDashboard(Boolean(getDashboardSnapshot(key)));
     }, 0);
-    return () => window.clearTimeout(initialLoad);
+    return () => {
+      window.clearTimeout(initialLoad);
+      requestRef.current?.abort();
+      requestRef.current = null;
+    };
   },
   [
     loadDashboard,
+    key,
   ],
 );
 
@@ -375,7 +345,7 @@ useEffect(
   /*
    * Loading ครั้งแรก
    */
-  if (isLoading) {
+  if (!snapshot && !errorMessage) {
     return (
       <main
         style={{
@@ -419,7 +389,7 @@ useEffect(
   /*
    * Error
    */
-  if (errorMessage) {
+  if (!snapshot) {
     return (
       <main
         style={{
@@ -551,11 +521,11 @@ useEffect(
    */
   return (
     <PorterDashboard
-      staffNo={staffNo}
-      staffName={staffName}
-      jobs={jobs}
-      alertJobs={alertJobs}
-      allowNewJobAlerts={!hasActiveJob}
+      staffNo={snapshot.staffNo}
+      staffName={snapshot.staffName}
+      jobs={snapshot.jobs}
+      alertJobs={snapshot.alertJobs}
+      allowNewJobAlerts={!snapshot.hasActiveJob}
       viewMode={viewMode}
     />
   );

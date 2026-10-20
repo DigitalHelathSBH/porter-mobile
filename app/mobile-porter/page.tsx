@@ -71,6 +71,7 @@ export default async function MobilePorterPage({
   return (
     <PorterDashboardLoader
       viewMode={viewMode}
+      expectedStaffNo={staffNo}
     />
   );
 }
