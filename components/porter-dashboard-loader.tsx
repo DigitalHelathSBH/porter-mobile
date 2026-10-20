@@ -80,6 +80,7 @@ export default function PorterDashboardLoader({
 
   const [alertJobs, setAlertJobs] =
     useState<PorterJob[]>([]);
+  const [hasActiveJob, setHasActiveJob] = useState(false);
 
   const loadDashboard =
     useCallback(
@@ -237,6 +238,8 @@ export default function PorterDashboardLoader({
           setAlertJobs(
             nextAlertJobs,
           );
+          const assignment = result.currentAssignment as { jobs?: PorterJob[] } | null | undefined;
+          setHasActiveJob((assignment?.jobs?.length ?? 0) > 0);
         } catch (error) {
           console.error(
             "loadDashboard error:",
@@ -275,6 +278,7 @@ export default function PorterDashboardLoader({
  */
 useEffect(
   () => {
+    const initialLoad = window.setTimeout(() => {
     const isFirstLoad = !hasDashboardLoadedBefore();
     markDashboardLoaded();
 
@@ -287,6 +291,8 @@ useEffect(
     }
 
     void loadDashboard(!isFirstLoad);
+    }, 0);
+    return () => window.clearTimeout(initialLoad);
   },
   [
     loadDashboard,
@@ -549,6 +555,7 @@ useEffect(
       staffName={staffName}
       jobs={jobs}
       alertJobs={alertJobs}
+      allowNewJobAlerts={!hasActiveJob}
       viewMode={viewMode}
     />
   );

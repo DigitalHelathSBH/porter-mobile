@@ -13,6 +13,7 @@ import Swal from "sweetalert2";
 import type { PorterJob } from "@/types/porter";
 
 import PorterHeader from "@/components/porter-header";
+import { useDetailNewJobAlert } from "@/lib/porter-alert";
 
 import {
   ArrowLeftIcon,
@@ -415,6 +416,8 @@ export default function PorterDetail({
    */
   const isThisJobActive =
     activeAssignment?.job?.reqNo === job.reqNo;
+
+  useDetailNewJobAlert(staffNo, job.reqNo, isReady && !isSubmitting && !activeAssignment);
 
   const hasOtherActiveJob =
     Boolean(activeAssignment?.job) &&

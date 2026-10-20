@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import {
@@ -72,6 +73,8 @@ export default function PorterHeadJobMonitor() {
 
   const checkingRef = useRef(false);
   const disposedRef = useRef(false);
+  const requestRef = useRef<AbortController | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
 
   /*
    * เก็บ reqNo ของงานหัวหน้าที่เคยแจ้งเตือนไปแล้ว
@@ -116,7 +119,19 @@ export default function PorterHeadJobMonitor() {
         return;
       }
 
+      if (!navigator.onLine) {
+        setConnectionMessage("ขาดการเชื่อมต่อ กำลังรอเครือข่ายเพื่อตรวจงานหัวหน้าอีกครั้ง");
+        return;
+      }
+
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+
       checkingRef.current = true;
+      const controller = new AbortController();
+      requestRef.current = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 75_000);
 
       try {
         const response = await fetch(
@@ -125,6 +140,7 @@ export default function PorterHeadJobMonitor() {
             method: "POST",
             cache: "no-store",
             credentials: "same-origin",
+            signal: controller.signal,
             headers: {
               "Content-Type": "application/json",
               "Cache-Control": "no-cache",
@@ -136,19 +152,23 @@ export default function PorterHeadJobMonitor() {
           },
         );
 
+        if (disposedRef.current || controller.signal.aborted) return;
+
         if (response.status === 401) {
-          window.location.href =
-            "/mobile-porter/login";
+          router.replace("/mobile-porter/login");
           return;
         }
 
         if (!response.ok) {
+          setConnectionMessage(`ตรวจงานหัวหน้าไม่สำเร็จ (HTTP ${response.status}) ระบบจะลองใหม่อัตโนมัติ`);
           return;
         }
 
         const result =
           (await response.json()) as AutoHeadResponse;
 
+        if (disposedRef.current || controller.signal.aborted) return;
+        setConnectionMessage(result.success ? null : "ตรวจงานหัวหน้าไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ");
 
         if (!result.success) {
           return;
@@ -252,6 +272,7 @@ export default function PorterHeadJobMonitor() {
               method: "POST",
               cache: "no-store",
               credentials: "same-origin",
+              signal: controller.signal,
               headers: {
                 "Content-Type": "application/json",
                 "Cache-Control": "no-cache",
@@ -263,18 +284,22 @@ export default function PorterHeadJobMonitor() {
             },
           );
 
+          if (disposedRef.current || controller.signal.aborted) return;
+
           if (activateResponse.status === 401) {
-            window.location.href =
-              "/mobile-porter/login";
+            router.replace("/mobile-porter/login");
             return;
           }
 
           if (!activateResponse.ok) {
+            setConnectionMessage(`รับงานหัวหน้าไม่สำเร็จ (HTTP ${activateResponse.status}) ระบบจะตรวจสถานะใหม่อัตโนมัติ`);
             return;
           }
 
           const activated =
             (await activateResponse.json()) as AutoHeadResponse;
+
+          if (disposedRef.current || controller.signal.aborted) return;
 
           if (!activated.success) {
             return;
@@ -300,12 +325,22 @@ export default function PorterHeadJobMonitor() {
           }
         }
       } catch (error) {
+        if (disposedRef.current || requestRef.current !== controller) return;
+        if (controller.signal.aborted || error instanceof TypeError) {
+          setConnectionMessage("ติดต่อระบบตรวจงานหัวหน้าไม่ได้ ระบบจะลองใหม่เมื่อเชื่อมต่อได้");
+          return;
+        }
+        setConnectionMessage("ตรวจงานหัวหน้าไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ");
         console.error(
           "PorterHeadJobMonitor error:",
           error,
         );
       } finally {
-        checkingRef.current = false;
+        window.clearTimeout(timeout);
+        if (requestRef.current === controller) {
+          requestRef.current = null;
+          checkingRef.current = false;
+        }
       }
     }, [pathname, router]);
 
@@ -318,7 +353,9 @@ export default function PorterHeadJobMonitor() {
       };
     }
 
-    void checkHeadJob();
+    const initialCheck = window.setTimeout(() => {
+      void checkHeadJob();
+    }, 0);
 
     const timer = window.setInterval(() => {
       void checkHeadJob();
@@ -334,16 +371,33 @@ export default function PorterHeadJobMonitor() {
       "visibilitychange",
       handleVisibilityChange,
     );
+    window.addEventListener("online", checkHeadJob);
+    const handleOffline = () => {
+      setConnectionMessage("ขาดการเชื่อมต่อ กำลังรอเครือข่ายเพื่อตรวจงานหัวหน้าอีกครั้ง");
+    };
+    window.addEventListener("offline", handleOffline);
 
     return () => {
       disposedRef.current = true;
+      requestRef.current?.abort();
+      requestRef.current = null;
+      checkingRef.current = false;
+      window.clearTimeout(initialCheck);
       window.clearInterval(timer);
       document.removeEventListener(
         "visibilitychange",
         handleVisibilityChange,
       );
+      window.removeEventListener("online", checkHeadJob);
+      window.removeEventListener("offline", handleOffline);
     };
   }, [pathname, checkHeadJob]);
 
-  return null;
+  if (!connectionMessage || pathname === "/mobile-porter/login") return null;
+
+  return (
+    <div role="status" style={{ padding: "10px 14px", background: "#fff7de", color: "#785400", fontSize: "13px", lineHeight: 1.6 }}>
+      {connectionMessage}
+    </div>
+  );
 }

@@ -2,7 +2,7 @@
 
 import {
   useEffect,
-  useRef,
+  useState,
 } from "react";
 
 import Swal from "sweetalert2";
@@ -150,33 +150,62 @@ export function buildNewCaseAlertHtml(
  * excludeReqNo: ใช้ตอนอยู่หน้ารายละเอียดงาน
  * เพื่อไม่ให้งานที่กำลังดูอยู่ถูกนับเป็น "งานใหม่"
  */
+type JobAlertHistory = { reqNos: Set<string> };
+
+// Keep history across page mounts, including when sessionStorage is unavailable.
+const jobAlertHistories = new Map<string, JobAlertHistory>();
+
+function getJobAlertHistory(key: string): JobAlertHistory | undefined {
+  const cached = jobAlertHistories.get(key);
+  if (cached) return cached;
+
+  try {
+    const stored: unknown = JSON.parse(window.sessionStorage.getItem(key) ?? "null");
+    if (Array.isArray(stored) && stored.every((value) => typeof value === "string")) {
+      const history = { reqNos: new Set<string>(stored) };
+      jobAlertHistories.set(key, history);
+      return history;
+    }
+  } catch {
+    // In-memory history still prevents duplicates during page navigation.
+  }
+  return undefined;
+}
+
 export function useNewJobAlert(
   alertJobs: PorterJob[],
+  staffNo: string,
   excludeReqNo?: string,
+  enabled = true,
 ): void {
-  const knownJobReqNosRef = useRef<Set<string>>(new Set());
-  const hasInitializedRef = useRef(false);
-
   useEffect(() => {
-    const relevantJobs = excludeReqNo
-      ? alertJobs.filter((job) => job.reqNo !== excludeReqNo)
-      : alertJobs;
+    // The loader supplies staffNo only after its first successful response.
+    // Do not use the initial empty loading state as the baseline.
+    const staff = staffNo.trim().toUpperCase();
+    if (!staff) return;
 
-    const currentReqNos = new Set(relevantJobs.map((job) => job.reqNo));
+    const key = `porter-new-job-history:v1:${staff}`;
+    const previousHistory = getJobAlertHistory(key);
+    const history = previousHistory ?? { reqNos: new Set<string>() };
+    const newJobs: PorterJob[] = [];
 
-    if (!hasInitializedRef.current) {
-      knownJobReqNosRef.current = currentReqNos;
-      hasInitializedRef.current = true;
-      return;
+    for (const job of alertJobs) {
+      const reqNo = job.reqNo.trim();
+      if (!reqNo || history.reqNos.has(reqNo)) continue;
+      // Mark every observed job before showing the toast. Never forget jobs
+      // when they disappear from the queue or the dashboard is unmounted.
+      history.reqNos.add(reqNo);
+      if (enabled && previousHistory && reqNo !== excludeReqNo && job.isHeadJob !== true) {
+        newJobs.push(job);
+      }
     }
 
-    const newJobs = relevantJobs.filter(
-  (job) =>
-    !knownJobReqNosRef.current.has(job.reqNo) &&
-    job.isHeadJob !== true,   // ← เพิ่มบรรทัดนี้ ไม่แจ้งซ้ำสำหรับงานหัวหน้า
-);
-
-    knownJobReqNosRef.current = currentReqNos;
+    jobAlertHistories.set(key, history);
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify([...history.reqNos]));
+    } catch {
+      // Fall back to the shared in-memory history.
+    }
 
     if (newJobs.length === 0) {
       return;
@@ -198,5 +227,77 @@ export function useNewJobAlert(
       timerProgressBar: true,
       width: "390px",
     });
-  }, [alertJobs, excludeReqNo]);
+  }, [alertJobs, staffNo, excludeReqNo, enabled]);
+}
+
+/** Poll while viewing a waiting job; share the dashboard's notification history. */
+export function useDetailNewJobAlert(staffNo: string, reqNo: string, enabled: boolean): void {
+  const [snapshot, setSnapshot] = useState<{
+    staffNo: string;
+    jobs: PorterJob[];
+    hasActiveJob: boolean;
+  } | null>(null);
+
+  useNewJobAlert(
+    snapshot?.jobs ?? [],
+    snapshot?.staffNo ?? "",
+    reqNo,
+    enabled && snapshot?.hasActiveJob === false,
+  );
+
+  useEffect(() => {
+    if (!enabled || !staffNo.trim()) return;
+    let disposed = false;
+    let request: AbortController | null = null;
+
+    async function check(): Promise<void> {
+      if (disposed || request || document.visibilityState === "hidden" || !navigator.onLine) return;
+      const controller = new AbortController();
+      request = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 75_000);
+      try {
+        const response = await fetch("/api/porter/dashboard", {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const result = await response.json() as {
+          success?: boolean;
+          staffNo?: string;
+          alertJobs?: PorterJob[];
+          currentAssignment?: { jobs?: PorterJob[] } | null;
+        };
+        if (disposed || !result.success || !Array.isArray(result.alertJobs)) return;
+        if (result.staffNo?.trim().toUpperCase() !== staffNo.trim().toUpperCase()) return;
+        setSnapshot({
+          staffNo,
+          jobs: result.alertJobs,
+          hasActiveJob: (result.currentAssignment?.jobs?.length ?? 0) > 0,
+        });
+      } catch {
+        // A failed poll must not replace the detail page or reset alert history.
+      } finally {
+        window.clearTimeout(timeout);
+        request = null;
+      }
+    }
+
+    const initial = window.setTimeout(() => { void check(); }, 0);
+    const interval = window.setInterval(() => { void check(); }, 30_000);
+    const refresh = () => { void check(); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    return () => {
+      disposed = true;
+      request?.abort();
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("online", refresh);
+    };
+  }, [enabled, staffNo]);
 }

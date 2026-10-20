@@ -29,6 +29,7 @@ type Props = {
   alertJobs?: PorterJob[];
   viewMode?: DashboardView;
   disableActiveJobRedirect?: boolean;
+  allowNewJobAlerts?: boolean;
 };
 
 type SmallIconProps = {
@@ -436,6 +437,7 @@ export default function PorterDashboard({
   alertJobs = [],
   viewMode = "ศูนย์เปล ER",
   disableActiveJobRedirect = false,
+  allowNewJobAlerts = true,
 }: Props) {
   const router =
     useRouter();
@@ -476,7 +478,7 @@ export default function PorterDashboard({
    * alertJobs = งานรอรับจากทั้ง 2 ศูนย์รวมกัน
    * ไม่ขึ้นกับ viewMode ที่กำลังเปิดอยู่
    */
-  useNewJobAlert(alertJobs);
+  useNewJobAlert(alertJobs, staffNo, undefined, allowNewJobAlerts);
 
   function handleViewChange(
     nextView: DashboardView,
