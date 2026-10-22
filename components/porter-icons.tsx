@@ -102,6 +102,17 @@ export function ClockIcon(props: IconProps) {
   );
 }
 
+export function HourglassIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M7 3h10M7 21h10" />
+      <path d="M8 3c0 4 1.5 6.5 4 9-2.5 2.5-4 5-4 9" />
+      <path d="M16 3c0 4-1.5 6.5-4 9 2.5 2.5 4 5 4 9" />
+      <path d="M10 7h4M10 18h4" />
+    </BaseIcon>
+  );
+}
+
 export function ClipboardIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

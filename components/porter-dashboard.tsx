@@ -1,18 +1,22 @@
 "use client";
 
 import {
+  useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
+import PorterWaitingJobCard from "@/components/porter-waiting-job-card";
+import { acceptPorterJob } from "@/lib/porter-live";
+import { removeWaitingDashboardJob } from "@/lib/porter-dashboard-cache";
 
 import PorterHeader from "@/components/porter-header";
 import type { PorterJob } from "@/types/porter";
 
 import {
-  buildNewCaseAlertHtml,
   getTimeOnly,
   useNewJobAlert,
 } from "@/lib/porter-alert";
@@ -436,11 +440,13 @@ export default function PorterDashboard({
   jobs = [],
   alertJobs = [],
   viewMode = "ศูนย์เปล ER",
-  disableActiveJobRedirect = false,
   allowNewJobAlerts = true,
 }: Props) {
   const router =
     useRouter();
+  const acceptingRef = useRef(false);
+  const [acceptingReqNo, setAcceptingReqNo] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<{ reqNo: string; message: string } | null>(null);
 
   const isFinishedView =
     viewMode === "finished";
@@ -478,7 +484,41 @@ export default function PorterDashboard({
    * alertJobs = งานรอรับจากทั้ง 2 ศูนย์รวมกัน
    * ไม่ขึ้นกับ viewMode ที่กำลังเปิดอยู่
    */
-  useNewJobAlert(alertJobs, staffNo, undefined, allowNewJobAlerts);
+  useNewJobAlert(alertJobs, staffNo, undefined, allowNewJobAlerts && !acceptingReqNo);
+
+  async function handleAccept(job: PorterJob): Promise<void> {
+    if (acceptingRef.current || !staffNo.trim() || isFinishedView) return;
+    if (!allowNewJobAlerts) {
+      router.replace("/mobile-porter/current");
+      return;
+    }
+    acceptingRef.current = true;
+    setAcceptingReqNo(job.reqNo);
+    setAcceptError(null);
+    let navigating = false;
+    try {
+      const result = await acceptPorterJob({ staffNo, reqNo: job.reqNo });
+      if (result.success || (result.code === "STAFF_HAS_ACTIVE_JOB" && result.assignment)) {
+        navigating = true;
+        removeWaitingDashboardJob(staffNo, result.success ? job.reqNo : null, true);
+        router.replace("/mobile-porter/current");
+        return;
+      }
+      if (["ALREADY_ASSIGNED", "ALREADY_FINISHED", "NOT_ACTIVE", "NOT_FOUND"].includes(result.code)) {
+        removeWaitingDashboardJob(staffNo, job.reqNo);
+        void Swal.fire({ toast: true, position: "top-end", icon: "warning", title: result.message, timer: 2800, showConfirmButton: false });
+      } else {
+        setAcceptError({ reqNo: job.reqNo, message: result.message });
+      }
+    } catch {
+      setAcceptError({ reqNo: job.reqNo, message: "รับงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      if (!navigating) {
+        acceptingRef.current = false;
+        setAcceptingReqNo(null);
+      }
+    }
+  }
 
   function handleViewChange(
     nextView: DashboardView,
@@ -502,13 +542,17 @@ export default function PorterDashboard({
     index: number,
     sectionType: "ER" | "OPD" | "finished",
   ) {
-    const encodedReqNo =
-      encodeURIComponent(
-        job.reqNo,
-      );
-
-    const detailUrl =
-      `/mobile-porter/${encodedReqNo}?view=${encodeURIComponent(viewMode)}`;
+    if (!isFinishedView) {
+      return <PorterWaitingJobCard
+        key={`${sectionType}-${job.reqNo}`}
+        job={job}
+        index={index}
+        busy={acceptingReqNo === job.reqNo}
+        disabled={Boolean(acceptingReqNo) || !staffNo.trim()}
+        error={acceptError?.reqNo === job.reqNo ? acceptError.message : undefined}
+        onAccept={() => { void handleAccept(job); }}
+      />;
+    }
 
     const rowStyle: CSSProperties = {
       ...styles.jobRow,
@@ -750,12 +794,9 @@ export default function PorterDashboard({
     }
 
     return (
-      <Link
+      <div
         key={
           `${sectionType}-${job.reqNo}-${index}`
-        }
-        href={
-          detailUrl
         }
         style={
           rowStyle
@@ -770,7 +811,7 @@ export default function PorterDashboard({
         }
       >
         {rowContent}
-      </Link>
+      </div>
     );
   }
 

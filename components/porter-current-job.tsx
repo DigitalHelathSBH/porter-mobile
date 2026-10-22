@@ -716,10 +716,7 @@ export default function PorterCurrentJob({
         return;
       }
 
-      const hasNextJobs =
-        await reloadAssignment();
-
-      await Swal.fire({
+      void Swal.fire({
         position: "top-end",
         toast: true,
         icon: "success",
@@ -730,9 +727,7 @@ export default function PorterCurrentJob({
         timerProgressBar: true,
       });
 
-      if (!hasNextJobs) {
-        goToDashboard();
-      }
+      router.replace("/mobile-porter");
     } catch (error) {
       console.error(
         "Finish job error:",

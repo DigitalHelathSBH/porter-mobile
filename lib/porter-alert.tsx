@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useState,
 } from "react";
 
 import Swal from "sweetalert2";
@@ -228,76 +227,4 @@ export function useNewJobAlert(
       width: "390px",
     });
   }, [alertJobs, staffNo, excludeReqNo, enabled]);
-}
-
-/** Poll while viewing a waiting job; share the dashboard's notification history. */
-export function useDetailNewJobAlert(staffNo: string, reqNo: string, enabled: boolean): void {
-  const [snapshot, setSnapshot] = useState<{
-    staffNo: string;
-    jobs: PorterJob[];
-    hasActiveJob: boolean;
-  } | null>(null);
-
-  useNewJobAlert(
-    snapshot?.jobs ?? [],
-    snapshot?.staffNo ?? "",
-    reqNo,
-    enabled && snapshot?.hasActiveJob === false,
-  );
-
-  useEffect(() => {
-    if (!enabled || !staffNo.trim()) return;
-    let disposed = false;
-    let request: AbortController | null = null;
-
-    async function check(): Promise<void> {
-      if (disposed || request || document.visibilityState === "hidden" || !navigator.onLine) return;
-      const controller = new AbortController();
-      request = controller;
-      const timeout = window.setTimeout(() => controller.abort(), 75_000);
-      try {
-        const response = await fetch("/api/porter/dashboard", {
-          method: "POST",
-          cache: "no-store",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-        const result = await response.json() as {
-          success?: boolean;
-          staffNo?: string;
-          alertJobs?: PorterJob[];
-          currentAssignment?: { jobs?: PorterJob[] } | null;
-        };
-        if (disposed || !result.success || !Array.isArray(result.alertJobs)) return;
-        if (result.staffNo?.trim().toUpperCase() !== staffNo.trim().toUpperCase()) return;
-        setSnapshot({
-          staffNo,
-          jobs: result.alertJobs,
-          hasActiveJob: (result.currentAssignment?.jobs?.length ?? 0) > 0,
-        });
-      } catch {
-        // A failed poll must not replace the detail page or reset alert history.
-      } finally {
-        window.clearTimeout(timeout);
-        request = null;
-      }
-    }
-
-    const initial = window.setTimeout(() => { void check(); }, 0);
-    const interval = window.setInterval(() => { void check(); }, 30_000);
-    const refresh = () => { void check(); };
-    document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("online", refresh);
-    return () => {
-      disposed = true;
-      request?.abort();
-      window.clearTimeout(initial);
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refresh);
-      window.removeEventListener("online", refresh);
-    };
-  }, [enabled, staffNo]);
 }

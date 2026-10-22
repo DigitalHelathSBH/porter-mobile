@@ -1,5 +1,6 @@
 export type PorterJob = {
   reqNo: string;
+  hn?: string;
   locSource: string;
   locDest: string;
   porter: string;

@@ -11,6 +11,7 @@ import type { PorterJob } from "@/types/porter";
  */
 type PorterDbRow = {
   ReqNo?: unknown;
+  Hn?: unknown;
   Porter?: unknown;
   IsHeadJob?: unknown;
   PorterWard?: unknown;
@@ -343,6 +344,8 @@ function mapPorterJob(
         "",
       ),
 
+    hn: getText(row.Hn, ""),
+
     locSource:
       getText(
         row.LocSource,
@@ -455,6 +458,7 @@ function mapPorterJob(
  */
 const porterSelectColumns = `
     C.ReqNo,
+    C.Hn,
 
     ISNULL(
         NULLIF(

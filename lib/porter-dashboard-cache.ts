@@ -34,3 +34,19 @@ export function subscribeDashboardCache(listener: () => void): () => void {
 export function getServerDashboardSnapshot(): null {
   return null;
 }
+
+/** Remove stale waiting cards across both centers after an accept/conflict. */
+export function removeWaitingDashboardJob(staffNo: string, reqNo: string | null, hasActiveJob = false): void {
+  const staff = staffNo.trim().toUpperCase();
+  for (const [key, snapshot] of snapshots) {
+    if (snapshot.staffNo.trim().toUpperCase() !== staff) continue;
+    const [, view] = JSON.parse(key) as [string, string];
+    snapshots.set(key, {
+      ...snapshot,
+      jobs: view === "finished" || !reqNo ? snapshot.jobs : snapshot.jobs.filter(job => job.reqNo !== reqNo),
+      alertJobs: reqNo ? snapshot.alertJobs.filter(job => job.reqNo !== reqNo) : snapshot.alertJobs,
+      hasActiveJob: hasActiveJob || snapshot.hasActiveJob,
+    });
+  }
+  listeners.forEach(listener => listener());
+}

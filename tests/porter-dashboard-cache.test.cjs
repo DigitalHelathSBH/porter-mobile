@@ -110,3 +110,22 @@ test('unmounted requests cannot overwrite the cached dashboard', async () => {
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(env.cache.getDashboardSnapshot(key), snapshot);
 });
+
+test('accept removes waiting cards across centers but preserves history and other employees', () => {
+  const { cache } = setup();
+  for (const view of ['ศูนย์เปล ER', 'ศูนย์เปล OPD', 'finished']) {
+    cache.saveDashboardSnapshot(cache.dashboardCacheKey('L0281', view), snapshot);
+  }
+  const otherKey = cache.dashboardCacheKey('F3939', 'ศูนย์เปล ER');
+  cache.saveDashboardSnapshot(otherKey, { ...snapshot, staffNo: 'F3939' });
+  cache.removeWaitingDashboardJob('l0281', 'A', true);
+  for (const view of ['ศูนย์เปล ER', 'ศูนย์เปล OPD']) {
+    const updated = cache.getDashboardSnapshot(cache.dashboardCacheKey('L0281', view));
+    assert.equal(updated.jobs.length, 0);
+    assert.equal(updated.alertJobs.length, 0);
+    assert.equal(updated.hasActiveJob, true);
+  }
+  assert.equal(cache.getDashboardSnapshot(cache.dashboardCacheKey('L0281', 'finished')).jobs.length, 1);
+  assert.equal(cache.getDashboardSnapshot(otherKey).jobs.length, 1);
+  assert.equal(cache.getDashboardSnapshot(otherKey).hasActiveJob, false);
+});
