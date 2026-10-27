@@ -18,7 +18,6 @@ import type { PorterJob } from "@/types/porter";
 
 import {
   getTimeOnly,
-  useNewJobAlert,
 } from "@/lib/porter-alert";
 
 type DashboardView =
@@ -438,7 +437,6 @@ export default function PorterDashboard({
   staffNo,
   staffName,
   jobs = [],
-  alertJobs = [],
   viewMode = "ศูนย์เปล ER",
   allowNewJobAlerts = true,
 }: Props) {
@@ -476,15 +474,6 @@ export default function PorterDashboard({
     isFinishedView
       ? "ไม่พบรายการงานที่เสร็จสิ้นในวันนี้"
       : "ขณะนี้ยังไม่มีรายการงานใหม่";
-
-  /*
-   * ตรวจจับงานใหม่ (ทั้ง ER และ OPD)
-   * แล้วแสดง SweetAlert
-   *
-   * alertJobs = งานรอรับจากทั้ง 2 ศูนย์รวมกัน
-   * ไม่ขึ้นกับ viewMode ที่กำลังเปิดอยู่
-   */
-  useNewJobAlert(alertJobs, staffNo, undefined, allowNewJobAlerts && !acceptingReqNo);
 
   async function handleAccept(job: PorterJob): Promise<void> {
     if (acceptingRef.current || !staffNo.trim() || isFinishedView) return;

@@ -38,26 +38,13 @@ type AutoHeadResponse = {
   currentAssignment?: CurrentAssignment | null;
 };
 
-function showHeadJobToast(
-  reqNo: string,
-): void {
+function showHeadJobToast(reqNo: string): void {
   void Swal.fire({
     position: "top-end",
     toast: true,
     icon: "warning",
     title: "งานจากหัวหน้าค่ะ",
-    html: `
-      <div
-        style="
-          text-align: left;
-          color: #4b5563;
-          font-size: 14px;
-          line-height: 1.55;
-        "
-      >
-        รหัสงาน <strong>${reqNo}</strong>
-      </div>
-    `,
+    text: `รหัสงาน ${reqNo}`,
     showConfirmButton: false,
     timer: 5000,
     timerProgressBar: true,
@@ -76,36 +63,15 @@ export default function PorterHeadJobMonitor() {
   const requestRef = useRef<AbortController | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
 
-  /*
-   * เก็บ reqNo ของงานหัวหน้าที่เคยแจ้งเตือนไปแล้ว
-   * เปลี่ยนจาก string เดี่ยว -> Set
-   * เพื่อรองรับงานหัวหน้าหลายงานพร้อมกัน
-   */
-  const notifiedHeadReqNosRef =
-    useRef<Set<string>>(new Set());
-
   const seenCurrentReqNosRef =
     useRef<Set<string>>(new Set());
+  const notifiedHeadReqNosRef = useRef<Set<string>>(new Set());
 
-  function notifyNewHeadJobs(
-    reqNos: string[],
-  ): void {
+  function notifyNewHeadJobs(reqNos: string[]): void {
     for (const reqNo of reqNos) {
-      if (!reqNo) {
-        continue;
-      }
-
-      if (
-        !notifiedHeadReqNosRef.current.has(
-          reqNo,
-        )
-      ) {
-        notifiedHeadReqNosRef.current.add(
-          reqNo,
-        );
-
-        showHeadJobToast(reqNo);
-      }
+      if (!reqNo || notifiedHeadReqNosRef.current.has(reqNo)) continue;
+      notifiedHeadReqNosRef.current.add(reqNo);
+      showHeadJobToast(reqNo);
     }
   }
 
@@ -199,11 +165,9 @@ export default function PorterHeadJobMonitor() {
           );
         });
 
-        /* toast สีส้มเฉพาะงานหัวหน้าจริง */
         notifyNewHeadJobs(
-          newJobs
-            .filter((job) => job.isHeadJob === true)
-            .map((job) => String(job.reqNo ?? "").trim()),
+          newJobs.filter(job => job.isHeadJob === true)
+            .map(job => String(job.reqNo ?? "").trim()),
         );
 
         /* มีงานใหม่เข้ามา -> เด้งไปหน้า current */
@@ -305,16 +269,9 @@ export default function PorterHeadJobMonitor() {
             return;
           }
 
-                    const activatedJobs =
-            activated.assignment?.jobs ?? [];
-
-          if (activatedJobs.length > 0) {
-            notifyNewHeadJobs(
-              activatedJobs.map((job) =>
-                String(job.reqNo ?? "").trim(),
-              ),
-            );
-          }
+          notifyNewHeadJobs(
+            (activated.assignment?.jobs ?? []).map(job => String(job.reqNo ?? "").trim()),
+          );
 
           if (activated.assignment) {
             if (pathname !== "/mobile-porter/current") {
