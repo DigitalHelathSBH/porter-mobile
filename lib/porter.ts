@@ -292,7 +292,16 @@ function formatDateTimeShort(
 function getPorterType(
   porter: string,
   ward: string,
+  source = "",
 ): "ER" | "OPD" {
+  const normalizedSource = source.replace(/\s/g, "").toUpperCase();
+  if (
+    normalizedSource.includes("อุบัติเหตุฉุกเฉิน") ||
+    normalizedSource === "ER" ||
+    normalizedSource === "ห้องER"
+  ) {
+    return "ER";
+  }
   if (porter === "2") {
     return "ER";
   }
@@ -335,6 +344,7 @@ function mapPorterJob(
     getPorterType(
       porter,
       porterWard,
+      getText(row.LocSource, ""),
     );
 
   return {
@@ -706,7 +716,7 @@ export async function getWaitingJobs(
 ): Promise<PorterJob[]> {
   const pool = await getDb();
 
-  const porterCondition =
+  const basePorterCondition =
     center === "ศูนย์เปล OPD"
       ? `
         LTRIM(
@@ -780,6 +790,17 @@ export async function getWaitingJobs(
             ) <> '114'
         )
       `;
+
+  // Source overrides the WardSection center, whether stored as a code or text.
+  const emergencySourceCondition = `(
+    ISNULL(C.LocSource, '') LIKE N'%อุบัติเหตุฉุกเฉิน%'
+    OR ISNULL(SW.WardName, '') LIKE N'%อุบัติเหตุฉุกเฉิน%'
+    OR UPPER(REPLACE(LTRIM(RTRIM(ISNULL(C.LocSource, ''))), ' ', '')) IN (N'ER', N'ห้องER')
+    OR UPPER(REPLACE(LTRIM(RTRIM(ISNULL(SW.WardName, ''))), ' ', '')) IN (N'ER', N'ห้องER')
+  )`;
+  const porterCondition = center === "ศูนย์เปล ER"
+    ? `(${emergencySourceCondition} OR (${basePorterCondition}))`
+    : `(NOT ${emergencySourceCondition} AND (${basePorterCondition}))`;
 
   const result = await pool
     .request()
