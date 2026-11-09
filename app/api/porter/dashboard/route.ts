@@ -71,7 +71,7 @@ export async function POST(
 
     const requestedView =
       String(
-        body.view ?? "ศูนย์เปล ER",
+        body.view ?? "ศูนย์เปล IPD",
       ).trim();
 
     const viewMode:
@@ -81,11 +81,14 @@ export async function POST(
         ? "ศูนย์เปล OPD"
         : requestedView === "finished"
           ? "finished"
-          : "ศูนย์เปล ER";
+          : requestedView === "ศูนย์เปล ER"
+            ? "ศูนย์เปล ER"
+            : "ศูนย์เปล IPD";
 
     const [
         staffName,
         currentAssignment,
+        ipdJobs,
         erJobs,
         opdJobs,
         finishedJobs,
@@ -96,6 +99,10 @@ export async function POST(
 
         getCurrentPorterAssignment(
           staffNo,
+        ),
+
+        getWaitingJobs(
+          "ศูนย์เปล IPD",
         ),
 
         getWaitingJobs(
@@ -114,6 +121,7 @@ export async function POST(
       ]);
 
     const alertJobs = [
+      ...ipdJobs,
       ...erJobs,
       ...opdJobs,
     ];
@@ -123,7 +131,9 @@ export async function POST(
         ? finishedJobs
         : viewMode === "ศูนย์เปล OPD"
           ? opdJobs
-          : erJobs;
+          : viewMode === "ศูนย์เปล ER"
+            ? erJobs
+            : ipdJobs;
 
     return NextResponse.json(
       {

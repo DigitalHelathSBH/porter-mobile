@@ -16,6 +16,7 @@ type PorterDbRow = {
   IsHeadJob?: unknown;
   PorterWard?: unknown;
   LocSource?: unknown;
+  SourceCode?: unknown;
   LocDest?: unknown;
   LocAct?: unknown;
   Shift?: unknown;
@@ -283,34 +284,29 @@ function formatDateTimeShort(
  *   = OPD
  *
  * porter = 2
- *   = ER
+ *   = IPD
  *
  * porter = 4
- *   = ER
+ *   = IPD
  *   ยกเว้น Ward 114 = OPD
  */
 function getPorterType(
   porter: string,
   ward: string,
   source = "",
-): "ER" | "OPD" {
-  const normalizedSource = source.replace(/\s/g, "").toUpperCase();
-  if (
-    normalizedSource.includes("อุบัติเหตุฉุกเฉิน") ||
-    normalizedSource === "ER" ||
-    normalizedSource === "ห้องER"
-  ) {
+): "IPD" | "ER" | "OPD" {
+  if (porter === "5" || source.trim() === "99") {
     return "ER";
   }
   if (porter === "2") {
-    return "ER";
+    return "IPD";
   }
 
   if (
     porter === "4" &&
     ward !== "114"
   ) {
-    return "ER";
+    return "IPD";
   }
 
   return "OPD";
@@ -344,7 +340,7 @@ function mapPorterJob(
     getPorterType(
       porter,
       porterWard,
-      getText(row.LocSource, ""),
+      getText(row.SourceCode, ""),
     );
 
   return {
@@ -469,6 +465,7 @@ function mapPorterJob(
 const porterSelectColumns = `
     C.ReqNo,
     C.Hn,
+    C.LocSource AS SourceCode,
 
     ISNULL(
         NULLIF(
@@ -705,6 +702,7 @@ export async function getStaffDisplayName(
  * ศูนย์เปล
  */
 export type PorterCenter =
+  | "ศูนย์เปล IPD"
   | "ศูนย์เปล ER"
   | "ศูนย์เปล OPD";
 
@@ -793,13 +791,11 @@ export async function getWaitingJobs(
 
   // Source overrides the WardSection center, whether stored as a code or text.
   const emergencySourceCondition = `(
-    ISNULL(C.LocSource, '') LIKE N'%อุบัติเหตุฉุกเฉิน%'
-    OR ISNULL(SW.WardName, '') LIKE N'%อุบัติเหตุฉุกเฉิน%'
-    OR UPPER(REPLACE(LTRIM(RTRIM(ISNULL(C.LocSource, ''))), ' ', '')) IN (N'ER', N'ห้องER')
-    OR UPPER(REPLACE(LTRIM(RTRIM(ISNULL(SW.WardName, ''))), ' ', '')) IN (N'ER', N'ห้องER')
+    LTRIM(RTRIM(ISNULL(C.LocSource, ''))) = '99'
+    OR LTRIM(RTRIM(ISNULL(CONVERT(varchar(10), WS.porter), ''))) = '5'
   )`;
   const porterCondition = center === "ศูนย์เปล ER"
-    ? `(${emergencySourceCondition} OR (${basePorterCondition}))`
+    ? emergencySourceCondition
     : `(NOT ${emergencySourceCondition} AND (${basePorterCondition}))`;
 
   const result = await pool

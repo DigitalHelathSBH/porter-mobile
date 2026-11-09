@@ -21,6 +21,7 @@ import {
 } from "@/lib/porter-alert";
 
 type DashboardView =
+  | "ศูนย์เปล IPD"
   | "ศูนย์เปล ER"
   | "ศูนย์เปล OPD"
   | "finished";
@@ -437,7 +438,7 @@ export default function PorterDashboard({
   staffNo,
   staffName,
   jobs = [],
-  viewMode = "ศูนย์เปล ER",
+  viewMode = "ศูนย์เปล IPD",
   allowNewJobAlerts = true,
 }: Props) {
   const router =
@@ -452,23 +453,17 @@ export default function PorterDashboard({
   const headerSubtitle =
     isFinishedView
       ? "ประวัติงานที่เสร็จสิ้น"
-      : viewMode === "ศูนย์เปล ER"
-        ? "รายการงานศูนย์เปล ER"
-        : "รายการงานศูนย์เปล OPD";
+      : `รายการงาน${viewMode}`;
 
   const listSubtitle =
     isFinishedView
       ? "รายการงานที่เสร็จสิ้นวันนี้"
-      : viewMode === "ศูนย์เปล ER"
-        ? "รายการงานรอรับจากศูนย์เปล ER"
-        : "รายการงานรอรับจากศูนย์เปล OPD";
+      : `รายการงานรอรับจาก${viewMode}`;
 
   const emptyTitle =
     isFinishedView
       ? "ยังไม่มีงานเสร็จสิ้น"
-      : viewMode === "ศูนย์เปล ER"
-        ? "ไม่มีงานศูนย์เปล ER"
-        : "ไม่มีงานศูนย์เปล OPD";
+      : `ไม่มีงาน${viewMode}`;
 
   const emptyText =
     isFinishedView
@@ -529,7 +524,7 @@ export default function PorterDashboard({
   function renderJob(
     job: PorterJob,
     index: number,
-    sectionType: "ER" | "OPD" | "finished",
+    sectionType: "IPD" | "ER" | "OPD" | "finished",
   ) {
     if (!isFinishedView) {
       return <PorterWaitingJobCard
@@ -861,19 +856,19 @@ export default function PorterDashboard({
                   type="button"
                   role="tab"
                   aria-selected={
-                    viewMode === "ศูนย์เปล ER"
+                    viewMode === "ศูนย์เปล IPD"
                   }
                   onClick={() =>
-                    handleViewChange("ศูนย์เปล ER")
+                    handleViewChange("ศูนย์เปล IPD")
                   }
                   style={{
                     ...styles.statusSwitchButton,
-                    ...(viewMode === "ศูนย์เปล ER"
+                    ...(viewMode === "ศูนย์เปล IPD"
                       ? styles.statusSwitchActive
                       : styles.statusSwitchInactive),
                   }}
                 >
-                  ศูนย์เปล ER
+                  ศูนย์เปล IPD
                 </button>
 
                 <button
@@ -893,6 +888,19 @@ export default function PorterDashboard({
                   }}
                 >
                   ศูนย์เปล OPD
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === "ศูนย์เปล ER"}
+                  onClick={() => handleViewChange("ศูนย์เปล ER")}
+                  style={{
+                    ...styles.statusSwitchButton,
+                    ...(viewMode === "ศูนย์เปล ER" ? styles.statusSwitchActive : styles.statusSwitchInactive),
+                  }}
+                >
+                  ศูนย์เปล ER
                 </button>
 
                 <button
@@ -998,7 +1006,7 @@ export default function PorterDashboard({
                     index,
                     viewMode === "ศูนย์เปล ER"
                       ? "ER"
-                      : "OPD",
+                      : viewMode === "ศูนย์เปล IPD" ? "IPD" : "OPD",
                   ),
               )}
             </div>
@@ -1085,11 +1093,11 @@ const styles: Record<
     width:
       "100%",
     maxWidth:
-      "300px",
+      "100%",
     display:
       "grid",
     gridTemplateColumns:
-      "repeat(3, minmax(0, 1fr))",
+      "repeat(4, minmax(0, 1fr))",
     padding:
       "3px",
     gap:
@@ -1114,7 +1122,7 @@ const styles: Record<
     minHeight:
       "38px",
     padding:
-      "7px 9px",
+      "7px 4px",
     borderWidth:
       0,
     borderStyle:
@@ -1124,7 +1132,7 @@ const styles: Record<
     fontFamily:
       "inherit",
     fontSize:
-      "13px",
+      "11px",
     fontWeight:
       700,
     lineHeight:

@@ -12,6 +12,7 @@ export const dynamic =
   "force-dynamic";
 
 type DashboardView =
+  | "ศูนย์เปล IPD"
   | "ศูนย์เปล ER"
   | "ศูนย์เปล OPD"
   | "finished";
@@ -61,7 +62,9 @@ export default async function MobilePorterPage({
     ? "ศูนย์เปล OPD"
     : params.view === "finished"
       ? "finished"
-      : "ศูนย์เปล ER";
+      : params.view === "ศูนย์เปล ER"
+        ? "ศูนย์เปล ER"
+        : "ศูนย์เปล IPD";
 
   // =========================
   // Dashboard พร้อม Auto-refresh

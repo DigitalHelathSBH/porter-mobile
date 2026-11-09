@@ -108,7 +108,9 @@ export function buildNewCaseAlertHtml(
       const centerLabel =
         String(job.porterType ?? "").trim().toUpperCase() === "ER"
           ? "ศูนย์เปล ER"
-          : "ศูนย์เปล OPD";
+          : String(job.porterType ?? "").trim().toUpperCase() === "IPD"
+            ? "ศูนย์เปล IPD"
+            : "ศูนย์เปล OPD";
 
       return `
         <div style="padding: 5px 0; text-align: left;">

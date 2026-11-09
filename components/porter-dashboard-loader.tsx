@@ -25,6 +25,7 @@ import type {
 } from "@/types/porter";
 
 type DashboardView =
+  | "ศูนย์เปล IPD"
   | "ศูนย์เปล ER"
   | "ศูนย์เปล OPD"
   | "finished";

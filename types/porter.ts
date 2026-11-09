@@ -4,7 +4,7 @@ export type PorterJob = {
   locSource: string;
   locDest: string;
   porter: string;
-  porterType: "OPD" | "ER";
+  porterType: "IPD" | "OPD" | "ER";
   locAct: string;
   shift: string;
   bedType: string;

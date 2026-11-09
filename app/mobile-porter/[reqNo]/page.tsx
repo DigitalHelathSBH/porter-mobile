@@ -7,6 +7,6 @@ export default async function LegacyJobDetailPage({
   searchParams: Promise<{ view?: string }>;
 }) {
   const { view } = await searchParams;
-  const validView = view === "ศูนย์เปล OPD" || view === "finished" ? view : "ศูนย์เปล ER";
+  const validView = view === "ศูนย์เปล OPD" || view === "ศูนย์เปล ER" || view === "finished" ? view : "ศูนย์เปล IPD";
   redirect(`/mobile-porter?view=${encodeURIComponent(validView)}`);
 }

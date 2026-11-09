@@ -49,6 +49,7 @@ function setup() {
     return null;
   }
   return {
+    screen(extra = {}) { cursor = 0; return Dashboard({ staffNo: 'l0281', staffName: 'ทดสอบ', jobs: [job], ...extra }); },
     render(extra = {}) { cursor = 0; return findCard(Dashboard({ staffNo: 'l0281', staffName: 'ทดสอบ', jobs: [job], ...extra })); },
     calls, routes, removals, notices,
     async resolve(result) { complete(result); await new Promise(resolve => setImmediate(resolve)); },
@@ -109,4 +110,16 @@ test('employee with an active job is directed to current work without accepting 
   env.render({ allowNewJobAlerts: false }).props.onAccept();
   assert.equal(env.calls.length, 0);
   assert.deepEqual(env.routes, ['/mobile-porter/current']);
+});
+
+test('tabs show IPD, OPD, ER and finished in order, with independent selected views', () => {
+  const env = setup();
+  for (const view of ['ศูนย์เปล IPD', 'ศูนย์เปล OPD', 'ศูนย์เปล ER', 'finished']) {
+    const html = renderToStaticMarkup(env.screen({ viewMode: view }));
+    const tabs = [...html.matchAll(/<button[^>]*role="tab"[^>]*>([^<]+)<\/button>/g)];
+    assert.deepEqual(tabs.map(tab => tab[1]), ['ศูนย์เปล IPD', 'ศูนย์เปล OPD', 'ศูนย์เปล ER', 'เสร็จสิ้น']);
+    const selected = tabs.filter(tab => tab[0].includes('aria-selected="true"'));
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0][1], view === 'finished' ? 'เสร็จสิ้น' : view);
+  }
 });
