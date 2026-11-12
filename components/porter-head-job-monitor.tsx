@@ -170,13 +170,9 @@ export default function PorterHeadJobMonitor() {
             .map(job => String(job.reqNo ?? "").trim()),
         );
 
-        /* มีงานใหม่เข้ามา -> เด้งไปหน้า current */
+        /* งานที่รับหรือถูกมอบหมายใหม่จะแสดงบน dashboard */
           if (newJobs.length > 0) {
-            if (pathname !== "/mobile-porter/current") {
-              router.replace("/mobile-porter/current");
-            } else {
-              router.refresh();
-            }
+            window.dispatchEvent(new Event("porter-assignment-changed"));
 
             /* จำงานหลังสั่ง redirect แล้วเท่านั้น */
             newJobs.forEach((job) => {
@@ -217,11 +213,7 @@ export default function PorterHeadJobMonitor() {
         }
 
         if (pendingJob.status === "กำลังดำเนินการ") {
-          if (pathname !== "/mobile-porter/current") {
-            router.replace("/mobile-porter/current");
-          } else {
-            router.refresh();
-          }
+          window.dispatchEvent(new Event("porter-assignment-changed"));
 
           return;
         }
@@ -274,11 +266,7 @@ export default function PorterHeadJobMonitor() {
           );
 
           if (activated.assignment) {
-            if (pathname !== "/mobile-porter/current") {
-              router.replace("/mobile-porter/current");
-            } else {
-              router.refresh();
-            }
+            window.dispatchEvent(new Event("porter-assignment-changed"));
           }
         }
       } catch (error) {
@@ -299,7 +287,7 @@ export default function PorterHeadJobMonitor() {
           checkingRef.current = false;
         }
       }
-    }, [pathname, router]);
+    }, [router]);
 
   useEffect(() => {
     disposedRef.current = false;

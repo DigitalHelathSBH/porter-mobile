@@ -138,26 +138,7 @@ export default function PorterDashboardLoader({
             );
           }
 
-          /*
-           * สำคัญ:
-           *
-           * ไม่ Redirect ไป Current
-           * จาก currentAssignment ตรงนี้
-           *
-           * เพราะงานหัวหน้าต้องผ่าน
-           * PorterHeadJobMonitor ก่อน
-           *
-           * Monitor จะเป็นตัวจัดการ:
-           *
-           * ไม่มีงาน Active
-           * -> Alert
-           * -> Activate
-           * -> Current
-           *
-           * มีงาน Active อยู่
-           * -> Alert อย่างเดียว
-           * -> ไม่เปลี่ยนหน้า
-           */
+          // Active jobs and the waiting queue are rendered together on the dashboard.
 
           /*
            * พนักงาน
@@ -213,6 +194,7 @@ export default function PorterDashboardLoader({
             jobs: nextJobs,
             alertJobs: nextAlertJobs,
             hasActiveJob: (assignment?.jobs?.length ?? 0) > 0,
+            activeJobs: assignment?.jobs ?? [],
           });
         } catch (error) {
           if (requestRef.current !== controller) return;
@@ -324,6 +306,12 @@ useEffect(
         "visibilitychange",
         handleVisibilityChange,
       );
+      const refreshAfterAction = () => {
+        requestRef.current?.abort();
+        requestRef.current = null;
+        void loadDashboard(true);
+      };
+      window.addEventListener("porter-assignment-changed", refreshAfterAction);
 
       return () => {
         isDisposed = true;
@@ -336,6 +324,7 @@ useEffect(
           "visibilitychange",
           handleVisibilityChange,
         );
+        window.removeEventListener("porter-assignment-changed", refreshAfterAction);
       };
     },
     [
@@ -527,6 +516,7 @@ useEffect(
       jobs={snapshot.jobs}
       alertJobs={snapshot.alertJobs}
       allowNewJobAlerts={!snapshot.hasActiveJob}
+      activeJobs={snapshot.activeJobs ?? []}
       viewMode={viewMode}
     />
   );

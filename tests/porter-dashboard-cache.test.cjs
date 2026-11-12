@@ -24,6 +24,7 @@ function setup() {
     setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
     setInterval() { return 0; }, clearInterval() {},
+    addEventListener() {}, removeEventListener() {},
   };
   const mockedRequire = name => {
     if (name === 'react') return {
@@ -128,4 +129,23 @@ test('accept removes waiting cards across centers but preserves history and othe
   assert.equal(cache.getDashboardSnapshot(cache.dashboardCacheKey('L0281', 'finished')).jobs.length, 1);
   assert.equal(cache.getDashboardSnapshot(otherKey).jobs.length, 1);
   assert.equal(cache.getDashboardSnapshot(otherKey).hasActiveJob, false);
+});
+
+test('active jobs survive center switches and finishing unlocks all cached centers', () => {
+  const { cache } = setup();
+  const centers = ['ศูนย์เปล IPD', 'ศูนย์เปล OPD', 'ศูนย์เปล ER', 'finished'];
+  for (const view of centers) cache.saveDashboardSnapshot(cache.dashboardCacheKey('L0281', view), snapshot);
+  cache.setDashboardActiveJobs('l0281', snapshot.jobs);
+  for (const view of centers) {
+    const saved = cache.getDashboardSnapshot(cache.dashboardCacheKey('L0281', view));
+    assert.equal(saved.activeJobs[0].reqNo, 'A');
+    assert.equal(saved.hasActiveJob, true);
+    if (view !== 'finished') assert.equal(saved.jobs.length, 0);
+  }
+  cache.setDashboardActiveJobs('L0281', []);
+  for (const view of centers) {
+    const saved = cache.getDashboardSnapshot(cache.dashboardCacheKey('L0281', view));
+    assert.equal(saved.activeJobs.length, 0);
+    assert.equal(saved.hasActiveJob, false);
+  }
 });

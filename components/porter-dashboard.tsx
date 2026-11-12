@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -10,8 +11,8 @@ import {
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import PorterWaitingJobCard from "@/components/porter-waiting-job-card";
-import { acceptPorterJob } from "@/lib/porter-live";
-import { removeWaitingDashboardJob } from "@/lib/porter-dashboard-cache";
+import { acceptPorterJob, cancelPorterJob, finishPorterJob } from "@/lib/porter-live";
+import { removeWaitingDashboardJob, setDashboardActiveJobs } from "@/lib/porter-dashboard-cache";
 
 import PorterHeader from "@/components/porter-header";
 import type { PorterJob } from "@/types/porter";
@@ -34,6 +35,7 @@ type Props = {
   viewMode?: DashboardView;
   disableActiveJobRedirect?: boolean;
   allowNewJobAlerts?: boolean;
+  activeJobs?: PorterJob[];
 };
 
 type SmallIconProps = {
@@ -437,18 +439,34 @@ function formatActivityPeriod(
 export default function PorterDashboard({
   staffNo,
   staffName,
-  jobs = [],
+  jobs: waitingJobs = [],
   viewMode = "ศูนย์เปล IPD",
   allowNewJobAlerts = true,
+  activeJobs = [],
 }: Props) {
   const router =
     useRouter();
   const acceptingRef = useRef(false);
+  const activeSectionRef = useRef<HTMLElement | null>(null);
+  const scrollToActiveRef = useRef(false);
   const [acceptingReqNo, setAcceptingReqNo] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<{ reqNo: string; message: string } | null>(null);
 
   const isFinishedView =
     viewMode === "finished";
+  const hasActiveJob = activeJobs.length > 0 || !allowNewJobAlerts;
+  const activeReqNos = new Set(activeJobs.map(job => job.reqNo));
+  const jobs = isFinishedView ? waitingJobs : waitingJobs.filter(job => !activeReqNos.has(job.reqNo));
+
+  useEffect(() => {
+    if (!scrollToActiveRef.current || activeJobs.length === 0) return;
+    scrollToActiveRef.current = false;
+    activeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeJobs]);
+
+  function refreshAssignment(): void {
+    window.dispatchEvent(new Event("porter-assignment-changed"));
+  }
 
   const headerSubtitle =
     isFinishedView
@@ -472,20 +490,17 @@ export default function PorterDashboard({
 
   async function handleAccept(job: PorterJob): Promise<void> {
     if (acceptingRef.current || !staffNo.trim() || isFinishedView) return;
-    if (!allowNewJobAlerts) {
-      router.replace("/mobile-porter/current");
-      return;
-    }
+    if (hasActiveJob) return;
     acceptingRef.current = true;
     setAcceptingReqNo(job.reqNo);
     setAcceptError(null);
-    let navigating = false;
     try {
       const result = await acceptPorterJob({ staffNo, reqNo: job.reqNo });
       if (result.success || (result.code === "STAFF_HAS_ACTIVE_JOB" && result.assignment)) {
-        navigating = true;
-        removeWaitingDashboardJob(staffNo, result.success ? job.reqNo : null, true);
-        router.replace("/mobile-porter/current");
+        const nextJobs = result.assignment?.jobs ?? [job];
+        scrollToActiveRef.current = true;
+        setDashboardActiveJobs(staffNo, nextJobs);
+        refreshAssignment();
         return;
       }
       if (["ALREADY_ASSIGNED", "ALREADY_FINISHED", "NOT_ACTIVE", "NOT_FOUND"].includes(result.code)) {
@@ -497,10 +512,31 @@ export default function PorterDashboard({
     } catch {
       setAcceptError({ reqNo: job.reqNo, message: "รับงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
     } finally {
-      if (!navigating) {
-        acceptingRef.current = false;
-        setAcceptingReqNo(null);
+      acceptingRef.current = false;
+      setAcceptingReqNo(null);
+    }
+  }
+
+  async function handleActiveAction(job: PorterJob, action: "cancel" | "finish"): Promise<void> {
+    if (acceptingRef.current || (action === "cancel" && job.isHeadJob)) return;
+    acceptingRef.current = true;
+    setAcceptingReqNo(job.reqNo);
+    setAcceptError(null);
+    try {
+      const result = await (action === "cancel" ? cancelPorterJob : finishPorterJob)({ staffNo, reqNo: job.reqNo });
+      if (!result.success) {
+        setAcceptError({ reqNo: job.reqNo, message: result.message });
+        refreshAssignment();
+        return;
       }
+      setDashboardActiveJobs(staffNo, activeJobs.filter(item => item.reqNo !== job.reqNo));
+      refreshAssignment();
+      void Swal.fire({ toast: true, position: "top-end", icon: "success", title: action === "cancel" ? "ยกเลิกงานแล้ว" : "งานเสร็จสิ้นแล้ว", timer: 1500, showConfirmButton: false });
+    } catch {
+      setAcceptError({ reqNo: job.reqNo, message: "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      acceptingRef.current = false;
+      setAcceptingReqNo(null);
     }
   }
 
@@ -518,6 +554,7 @@ export default function PorterDashboard({
       `/mobile-porter?view=${encodeURIComponent(
         nextView,
       )}`,
+      { scroll: false },
     );
   }
 
@@ -533,6 +570,8 @@ export default function PorterDashboard({
         index={index}
         busy={acceptingReqNo === job.reqNo}
         disabled={Boolean(acceptingReqNo) || !staffNo.trim()}
+        hideAccept={hasActiveJob}
+        detailHref={`/mobile-porter/${encodeURIComponent(job.reqNo)}?view=${encodeURIComponent(viewMode)}`}
         error={acceptError?.reqNo === job.reqNo ? acceptError.message : undefined}
         onAccept={() => { void handleAccept(job); }}
       />;
@@ -818,7 +857,27 @@ export default function PorterDashboard({
             headerSubtitle
           }
           showLogout
+          compact
         />
+
+        {activeJobs.length > 0 && <section ref={activeSectionRef} aria-label="งานที่กำลังดำเนินการ" style={{ marginBottom: "12px", scrollMarginTop: "10px" }}>
+          <h2 style={{ fontSize: "14px", color: "#1269af", margin: "0 0 8px" }}>งานที่กำลังดำเนินการ ({activeJobs.length})</h2>
+          <div style={{ display: "grid", gap: "8px" }}>
+            {activeJobs.map((job, index) => <PorterWaitingJobCard
+              key={`active-${job.reqNo}`}
+              job={job}
+              index={index}
+              active
+              detailHref={`/mobile-porter/${encodeURIComponent(job.reqNo)}?view=${encodeURIComponent(viewMode)}`}
+              busy={acceptingReqNo === job.reqNo}
+              disabled={Boolean(acceptingReqNo)}
+              error={acceptError?.reqNo === job.reqNo ? acceptError.message : undefined}
+              onAccept={() => {}}
+              onCancel={() => { void handleActiveAction(job, "cancel"); }}
+              onFinish={() => { void handleActiveAction(job, "finish"); }}
+            />)}
+          </div>
+        </section>}
 
         <section
           style={

@@ -23,6 +23,7 @@ type Props = {
 
   showBack?: boolean;
   showLogout?: boolean;
+  compact?: boolean;
 };
 
 export default function PorterHeader({
@@ -32,6 +33,7 @@ export default function PorterHeader({
   subtitle = "รายการงานรอรับ",
   showBack = false,
   showLogout = false,
+  compact = false,
 }: Props) {
   const router =
     useRouter();
@@ -169,7 +171,7 @@ export default function PorterHeader({
           "12px",
 
         padding:
-          "16px",
+          compact ? "10px 12px" : "16px",
 
         borderRadius:
           "18px",
@@ -193,7 +195,7 @@ export default function PorterHeader({
             "center",
 
           gap:
-            "11px",
+            compact ? "8px" : "11px",
         }}
       >
         {showBack ? (
@@ -205,10 +207,10 @@ export default function PorterHeader({
             aria-label="ย้อนกลับ"
             style={{
               width:
-                "46px",
+                compact ? "34px" : "46px",
 
               height:
-                "46px",
+                compact ? "34px" : "46px",
 
               display:
                 "grid",
@@ -241,13 +243,13 @@ export default function PorterHeader({
           <div
             style={{
               width:
-                "46px",
+                compact ? "34px" : "46px",
 
               height:
-                "46px",
+                compact ? "34px" : "46px",
 
               flex:
-                "0 0 46px",
+                compact ? "0 0 34px" : "0 0 46px",
 
               display:
                 "grid",
@@ -266,7 +268,7 @@ export default function PorterHeader({
             }}
           >
             <AmbulanceIcon
-              size={30}
+              size={compact ? 23 : 30}
               color="#ffffff"
             />
           </div>
@@ -284,7 +286,7 @@ export default function PorterHeader({
           <div
             style={{
               fontSize:
-                "19px",
+                compact ? "15px" : "19px",
 
               fontWeight:
                 700,
@@ -302,7 +304,7 @@ export default function PorterHeader({
                 "3px",
 
               fontSize:
-                "12px",
+                compact ? "10px" : "12px",
 
               opacity:
                 0.88,
@@ -381,10 +383,10 @@ export default function PorterHeader({
             "100%",
 
           marginTop:
-            "12px",
+            compact ? "7px" : "12px",
 
           padding:
-            "9px 11px",
+            compact ? "5px 8px" : "9px 11px",
 
           overflow:
             "hidden",
@@ -399,7 +401,7 @@ export default function PorterHeader({
             "rgba(255,255,255,0.18)",
 
           fontSize:
-            "13px",
+            compact ? "11px" : "13px",
 
           fontWeight:
             700,

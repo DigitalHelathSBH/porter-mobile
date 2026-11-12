@@ -6,6 +6,7 @@ export type DashboardSnapshot = {
   jobs: PorterJob[];
   alertJobs: PorterJob[];
   hasActiveJob: boolean;
+  activeJobs?: PorterJob[];
 };
 
 // Keep the last successful response while navigating within this app.
@@ -46,6 +47,23 @@ export function removeWaitingDashboardJob(staffNo: string, reqNo: string | null,
       jobs: view === "finished" || !reqNo ? snapshot.jobs : snapshot.jobs.filter(job => job.reqNo !== reqNo),
       alertJobs: reqNo ? snapshot.alertJobs.filter(job => job.reqNo !== reqNo) : snapshot.alertJobs,
       hasActiveJob: hasActiveJob || snapshot.hasActiveJob,
+    });
+  }
+  listeners.forEach(listener => listener());
+}
+
+export function setDashboardActiveJobs(staffNo: string, activeJobs: PorterJob[]): void {
+  const staff = staffNo.trim().toUpperCase();
+  const activeReqNos = new Set(activeJobs.map(job => job.reqNo));
+  for (const [key, snapshot] of snapshots) {
+    if (snapshot.staffNo.trim().toUpperCase() !== staff) continue;
+    const [, view] = JSON.parse(key) as [string, string];
+    snapshots.set(key, {
+      ...snapshot,
+      activeJobs,
+      hasActiveJob: activeJobs.length > 0,
+      jobs: view === "finished" ? snapshot.jobs : snapshot.jobs.filter(job => !activeReqNos.has(job.reqNo)),
+      alertJobs: snapshot.alertJobs.filter(job => !activeReqNos.has(job.reqNo)),
     });
   }
   listeners.forEach(listener => listener());

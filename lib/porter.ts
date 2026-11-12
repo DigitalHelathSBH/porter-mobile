@@ -894,8 +894,37 @@ export async function getWaitingJobs(
 }
 
 /**
- * ดึงรายการงานที่เสร็จสิ้นของวันนี้
+ * อ่านรายละเอียดงานรอรับหรืองานของพนักงานปัจจุบัน
  */
+export async function getPorterJobDetailDb(reqNo: string, staffNo: string): Promise<PorterJob | null> {
+  const normalizedReqNo = String(reqNo ?? "").trim();
+  const normalizedStaffNo = normalizeStaffNo(staffNo);
+  if (!normalizedReqNo || !normalizedStaffNo) return null;
+  const pool = await getDb();
+  const result = await pool.request()
+    .input("ReqNo", sql.VarChar(50), normalizedReqNo)
+    .input("StaffNo", sql.VarChar(30), normalizedStaffNo)
+    .query(`
+      SELECT TOP 1 ${porterSelectColumns}
+      FROM CradleMst C
+      LEFT JOIN dbo.wardcode SW ON C.LocSource = SW.Code
+      LEFT JOIN dbo.WardSection WS ON C.LocSource = WS.Ward
+      LEFT JOIN dbo.CradleMstRef_Head H ON H.CradleDate = CONVERT(date, C.crt_dt)
+      WHERE C.ReqNo = @ReqNo
+        AND (
+          UPPER(LTRIM(RTRIM(ISNULL(C.CradleStaffNo, '')))) = @StaffNo
+          OR (
+            LTRIM(RTRIM(ISNULL(C.CradleStaffNo, ''))) = ''
+            AND LTRIM(RTRIM(ISNULL(C.Status, ''))) = N'ยังไม่ดำเนินการ'
+            AND C.fin_dt IS NULL
+          )
+        );
+    `);
+  const row = result.recordset[0] as PorterDbRow | undefined;
+  return row ? mapPorterJob(row) : null;
+}
+
+/** ดึงรายการงานที่เสร็จสิ้นของวันนี้ */
 export async function getFinishedJobs(
   staffNo: string,
 ): Promise<PorterJob[]> {
