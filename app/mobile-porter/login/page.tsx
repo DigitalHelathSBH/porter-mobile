@@ -9,6 +9,7 @@ import {
 } from "next/navigation";
 
 import Swal from "sweetalert2";
+import { StretcherIcon } from "@/components/porter-icons";
 
 import {
   getCurrentPorterAssignment,
@@ -335,7 +336,7 @@ export default function PorterLoginPage() {
                 "30px",
             }}
           >
-            🚑
+            <StretcherIcon size={34} color="#1774c8" />
           </div>
 
           <div
@@ -405,7 +406,7 @@ export default function PorterLoginPage() {
               event.target.value,
             );
           }}
-          placeholder="เช่น L0281"
+          placeholder="กรอกรหัสเจ้าหน้าที่"
           autoFocus
           autoComplete="username"
           disabled={isLoading}

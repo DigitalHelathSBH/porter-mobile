@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PorterJob } from "@/types/porter";
-import { BedIcon, CheckIcon, ClipboardIcon, ClockIcon, HourglassIcon, IvIcon, LightningIcon, NoteIcon, WheelchairIcon } from "@/components/porter-icons";
+import { BedIcon, CheckIcon, ClipboardIcon, ClockIcon, HourglassIcon, IvIcon, LightningIcon, NoteIcon, PorterTransportIcon } from "@/components/porter-icons";
 import { getTimeOnly } from "@/lib/porter-alert";
 import styles from "./porter-waiting-job-card.module.css";
 
@@ -26,7 +26,6 @@ export default function PorterWaitingJobCard({ job, index, busy, disabled, error
   const urgencyLabel = urgency === "2" ? "FastTrack" : urgency === "1" ? "ด่วน" : "ปกติ";
   const urgencyClass = urgency === "2" ? styles.fast : urgency === "1" ? styles.urgent : styles.normal;
   const UrgencyIcon = urgency === "2" ? LightningIcon : urgency === "1" ? ClockIcon : HourglassIcon;
-  const TransportIcon = job.bedType.includes("นอน") ? BedIcon : WheelchairIcon;
   const vehicle = job.bedType.replace(/\s/g, "");
   const vehicleClass = vehicle.includes("เฉพาะเจ้าหน้าที่") ? styles.staffVehicle
     : vehicle.includes("นั่ง") && vehicle.includes("น้ำเกลือ") ? styles.ivVehicle
@@ -58,7 +57,7 @@ export default function PorterWaitingJobCard({ job, index, busy, disabled, error
 
       <div className={styles.badges}>
         <span className={`${styles.urgency} ${urgencyClass}`}>{urgencyLabel}</span>
-        <span className={`${styles.transport} ${vehicleClass}`}><TransportIcon size={16} />{job.bedType || "ไม่ระบุประเภทรถ"}</span>
+        <span className={`${styles.transport} ${vehicleClass}`}><PorterTransportIcon bedType={job.bedType} size={16} />{job.bedType || "ไม่ระบุประเภทรถ"}</span>
         {hn && hn !== "-" && <span className={styles.transport}>HN {hn}</span>}
       </div>
 

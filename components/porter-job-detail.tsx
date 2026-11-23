@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import PorterHeader from "@/components/porter-header";
-import { ArrowLeftIcon, BedIcon, CalendarIcon, ClipboardIcon, ClockIcon, HospitalIcon, HourglassIcon, IvIcon, LightningIcon, NoteIcon, UserIcon, WheelchairIcon } from "@/components/porter-icons";
+import { ArrowLeftIcon, BedIcon, CalendarIcon, ClipboardIcon, ClockIcon, HospitalIcon, HourglassIcon, IvIcon, LightningIcon, NoteIcon, UserIcon, PorterTransportIcon } from "@/components/porter-icons";
 import type { PorterJob } from "@/types/porter";
 import styles from "./porter-job-detail.module.css";
 
@@ -46,7 +46,7 @@ export default function PorterJobDetail({ job, staffNo, staffName, view }: {
         <section className={styles.card} aria-label="รายละเอียดงาน">
           <dl className={styles.grid}>
             <DetailItem label="กิจกรรม" value={job.locAct} icon={<ClipboardIcon size={20} />} />
-            <DetailItem label="ประเภทที่ขอ" value={job.bedType} icon={<WheelchairIcon size={20} />} />
+            <DetailItem label="ประเภทที่ขอ" value={job.bedType} icon={<PorterTransportIcon bedType={job.bedType} size={20} />} />
             <DetailItem label="เวร" value={job.shift} icon={<ClockIcon size={20} />} />
             <DetailItem label="เลขเตียง" value={job.bedNo} icon={<BedIcon size={20} />} />
             {job.hn && job.hn !== "-" && <DetailItem label="HN" value={job.hn} icon={<UserIcon size={20} />} full />}

@@ -11,7 +11,7 @@ import {
 import Swal from "sweetalert2";
 
 import {
-  AmbulanceIcon,
+  StretcherIcon,
 } from "@/components/porter-icons";
 
 type Props = {
@@ -267,7 +267,7 @@ export default function PorterHeader({
                 "rgba(255,255,255,0.15)",
             }}
           >
-            <AmbulanceIcon
+            <StretcherIcon
               size={compact ? 23 : 30}
               color="#ffffff"
             />

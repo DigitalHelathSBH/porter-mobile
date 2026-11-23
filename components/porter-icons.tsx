@@ -56,6 +56,25 @@ export function BedIcon(props: IconProps) {
   );
 }
 
+export function StretcherIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M17 2v5M14.5 4.5h5" />
+      <rect x="3" y="7" width="5" height="3" rx="1.5" />
+      <rect x="2" y="10" width="20" height="4" rx="2" />
+      <path d="m7 14-2 4m12-4 2 4" />
+      <circle cx="5" cy="20" r="2" />
+      <circle cx="19" cy="20" r="2" />
+    </BaseIcon>
+  );
+}
+
+export function PorterTransportIcon({ bedType, ...props }: IconProps & { bedType: string }) {
+  if (bedType.includes("เฉพาะเจ้าหน้าที่")) return <StaffIcon {...props} />;
+  if (bedType.includes("นอน")) return <BedIcon {...props} />;
+  return <WheelchairIcon {...props} />;
+}
+
 export function HospitalIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>
@@ -139,6 +158,19 @@ export function UserIcon(props: IconProps) {
     <BaseIcon {...props}>
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c1-5 4-7 8-7s7 2 8 7" />
+    </BaseIcon>
+  );
+}
+
+export function StaffIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="12" cy="8" r="5" strokeWidth="1.7" />
+      <path d="M7 7a5 5 0 0 1 10 0l-2-1-1.5 1-2-1-1.5 1-1-1-2 1Z" fill="currentColor" stroke="none" />
+      <circle cx="10.2" cy="8.5" r=".65" fill="currentColor" stroke="none" />
+      <circle cx="13.8" cy="8.5" r=".65" fill="currentColor" stroke="none" />
+      <path d="M10.5 10.5q1.5 1.5 3 0" strokeWidth="1.1" />
+      <path d="M4 21v-1a8 6 0 0 1 16 0v1H4Z" strokeWidth="1.7" />
     </BaseIcon>
   );
 }
